@@ -1126,7 +1126,7 @@
 						380.0
 					],
 					"textfile": {
-						"filename": "dingusGateRoll.js",
+						"filename": "dingus.gateRoll.js",
 						"flags": 0,
 						"embed": 0,
 						"autowatch": 1

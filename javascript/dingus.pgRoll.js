@@ -4,7 +4,7 @@
 // Piano-roll editor for the pitch / gate sequencer (uPG).
 // Monophonic: notes start anywhere and have any length; they never overlap.
 // Steps are the grid (and the unit the engine steps through); up to 16 notes may start in one step.
-// Pitch = tuning degree index (th.stof index), rows sized by cents like dingusPitchGrid.
+// Pitch = tuning degree index (th.stof index), rows sized by cents like dingus.pitchGrid.
 //
 // ROLL   click an empty place = new note there (start snapped down to the grid), drag right = longer
 //        drag a note's right end = resize (grid snap, alt = free)
