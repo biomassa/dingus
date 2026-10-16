@@ -25,6 +25,10 @@ Max can't create folders: create one of them, and add it to Max's search path (O
 | `dingus.pluginSideChain` | stereo plug-in host with a stereo sidechain input (`mcs.vst~ 4 2`) and 3 parameter inputs | (studio patch) |
 | `dingus.pluginGRM` | GRM Tools Atelier (VST3) with 16 parameter inputs (0..1) | (studio patch) |
 | `dingus.pluginGRM32` | GRM Tools Atelier (VST3) with 32 parameter inputs (0..1) | (studio patch) |
+| `dingus.fighterTwister` | Midi Fighter Twister bank 1: 16 knobs with knob loopers, 32 outlets | (studio patch) |
+| `dingus.fighterTwister2` | the same for bank 2 | (studio patch) |
+| `dingus.fighterTwister3` | the same for bank 3 | (studio patch) |
+| `dingus.fighterTwister4` | the same for bank 4 | (studio patch) |
 | `dingus.gatesSeq` | gate sequencer: gates on steps, spanning steps, length of the last step, per-gate lanes | `uGATE_<name>.json` |
 
 Scripts (`javascript/`):
@@ -42,8 +46,10 @@ Scripts (`javascript/`):
 
 Abstractions (`patchers/abstractions/`):
 
-| abstraction | used by |
+| abstraction | what it does |
 |---|---|
+| `dingus.twisterLooper` | knob looper and LED colours for Fighter Twister bank 1 (`dingus.twisterLooperBank2`..`5` for the other banks) |
+| `dingus.updateKnobs` | Fighter Twister knob updates, used by every `dingus.fighterTwister*` |
 | `dingus.sequencedata~` | `dingus.pitchSeq`, `dingus.voltagesModulator`: a fixed copy of Data Knot's `dk.sequencedata~` (Rodrigo Constanzo, BSD 3-Clause) |
 
 ## Dependencies
