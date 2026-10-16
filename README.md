@@ -1,5 +1,13 @@
 # dingus
 
+![dingus.gestureLooper: a piano roll of MPE gestures with lanes for pressure, Y, bend, velocity and probability](docs/images/dingus.gestureLooper.webp)
+
+*`dingus.gestureLooper`*
+
+![dingus.pitchGateSeq: a piano roll for a Scala tuning with lanes for velocity, glide, ratchets, fade, duty and chance](docs/images/dingus.pitchGateSeq.webp)
+
+*`dingus.pitchGateSeq`*
+
 dingus is a Max package of bpatchers for a modular studio. It has sequencers, modulators, clocks, plug-in hosts, a mixer, and I/O for the ES-8 and for MIDI controllers. You need Max 9.
 
 ## Installation
