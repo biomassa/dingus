@@ -11,11 +11,25 @@ dingus is a Max package of bpatchers for a modular studio. It has sequencers, mo
 
 ## How to use a bpatcher
 
-Each file name starts with `dingus.`. Give each instance a name with the `@args` attribute:
+Each file name starts with `dingus.`. Add a bpatcher to a patch with its file name:
+
+    [bpatcher dingus.<name>.maxpat]
+
+These bpatchers keep their own presets or sequences in a file:
+
+- `dingus.gestureLooper`
+- `dingus.pitchGateSeq`
+- `dingus.pitchSeq`
+- `dingus.gatesSeq`
+- `dingus.voltagesModulator`
+
+Give each instance of these bpatchers an instance name with the `@args` attribute:
 
     [bpatcher dingus.<name>.maxpat @args <instance name>]
 
-Use a different instance name for each instance of the same bpatcher. The instance name sets the name of the presets file.
+The instance name sets the name of the presets file and of the pattrstorage. Use a different instance name for each instance of the same bpatcher. If two instances have the same name, they write to the same file.
+
+The other bpatchers do not use `@args`. Their settings are stored in the studio patch.
 
 ## Presets folder
 
