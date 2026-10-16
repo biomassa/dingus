@@ -33,6 +33,9 @@ Max can't create folders: create one of them, and add it to Max's search path (O
 | `dingus.mainMixer` | studio mixer: channel pairs 1+2..7+8, sidechain, 3 FX returns | (studio patch) |
 | `dingus.mpe2cv` | MPE from `midiin` to control values (`mpeparse`) | (studio patch) |
 | `dingus.gwonzer` | controller for the Shnth (15 outlets) | (studio patch) |
+| `dingus.es8Main` | Expert Sleepers ES-8 main I/O (4 in, 4 out) | (studio patch) |
+| `dingus.es8Outs` | 12 outputs to the ES-8 and its expanders (`dac~`) | (studio patch) |
+| `dingus.es8UltraOuts` | 16 outputs to the ES-8 with the UltraLite-mk5 (`dac~`) | (studio patch) |
 | `dingus.fighterTwister` | Midi Fighter Twister bank 1: 16 knobs with knob loopers, 32 outlets | (studio patch) |
 | `dingus.fighterTwister2` | the same for bank 2 | (studio patch) |
 | `dingus.fighterTwister3` | the same for bank 3 | (studio patch) |
@@ -58,6 +61,8 @@ Abstractions (`patchers/abstractions/`):
 |---|---|
 | `dingus.clockThePam` | clock output for Pamela's Workout (used in the studio patches) |
 | `dingus.clockExternalMidiDevice` | MIDI clock for an external device |
+| `dingus.es8InputsCompensation` | ES-8 input compensation (4 in, 1 out) |
+| `dingus.es8OutsCalibration` | ES-8 output calibration (8 channels) |
 | `dingus.twisterLooper` | knob looper and LED colours for Fighter Twister bank 1 (`dingus.twisterLooperBank2`..`5` for the other banks) |
 | `dingus.updateKnobs` | Fighter Twister knob updates, used by every `dingus.fighterTwister*` |
 | `dingus.sequencedata~` | `dingus.pitchSeq`, `dingus.voltagesModulator`: a fixed copy of Data Knot's `dk.sequencedata~` (Rodrigo Constanzo, BSD 3-Clause) |
