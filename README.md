@@ -17,6 +17,7 @@ Max can't create folders: create one of them, and add it to Max's search path (O
 
 | bpatcher | what it does | presets file |
 |---|---|---|
+| `dingus.gestureLooper` | MPE gesture looper / sequencer between `midiin` and a note bpatcher: 32 sequences, piano roll with pressure, Y, bend, velocity and per-note probability lanes, overdub, undo, phasor clock | `gestureLooper_<name>.json` |
 | `dingus.pitchGateSeq` | monophonic pitch/gate piano-roll sequencer: microtonal rows from a Scala tuning, per-note lanes (velocity, glide, ratchets, fade, duty), chance lanes, beats per step, play range | `uPG_<name>.json` |
 | `dingus.pitchSeq` | step pitch sequencer for Scala tunings: pitch grid, per-step delays, tuning slider | `uPITCH_<name>.json` |
 | `dingus.voltagesModulator` | stepped voltage modulator | `uVOLT_<name>.json` |
@@ -48,6 +49,10 @@ Scripts (`javascript/`):
 |---|---|
 | `dingus.paths.js` | presets folder (CommonJS module) |
 | `dingus.presetFile.js` | per-instance preset file for a pattrstorage |
+| `dingus.studioPresets.js` | preset file named after the studio patch (`[v8 dingus.studioPresets.js <fallback name>]`) |
+| `dingus.gestureLoop.js` | the engine of `dingus.gestureLooper` (v8) |
+| `dingus.gestureRoll.js` | the roll of `dingus.gestureLooper` (v8ui) |
+| `dingus.gestureHead.js` | the position strip of `dingus.gestureLooper` (v8ui) |
 | `dingus.envNext.js` | gate-off for a `function` envelope, only when it has a sustain point |
 | `dingus.pgRoll.js` | the roll of `dingus.pitchGateSeq` (v8ui) |
 | `dingus.gateRoll.js` | the roll of `dingus.gatesSeq` (v8ui) |
@@ -83,4 +88,4 @@ Install these alongside dingus:
 
 ## Layout
 
-`patchers/` bpatchers and abstractions, `javascript/` scripts, `code/` gen~ code, `help/` help patches, `extras/` and `snippets/` (planned: a browser of all bpatchers), `tests/` node tests, `docs/` specs.
+`patchers/` bpatchers and abstractions, `javascript/` scripts, `code/` gen~ code, `help/` help patches (`dingus.gestureLooper.maxhelp` so far), `extras/` and `snippets/` (planned: a browser of all bpatchers), `tests/` node tests (`node tests/<name>.test.mjs` from this folder), `docs/` specs (`docs/gesture-looper.md`).
