@@ -20,6 +20,11 @@ Max can't create folders: create one of them, and add it to Max's search path (O
 | `dingus.pitchGateSeq` | monophonic pitch/gate piano-roll sequencer: microtonal rows from a Scala tuning, per-note lanes (velocity, glide, ratchets, fade, duty), chance lanes, beats per step, play range | `uPG_<name>.json` |
 | `dingus.pitchSeq` | step pitch sequencer for Scala tunings: pitch grid, per-step delays, tuning slider | `uPITCH_<name>.json` |
 | `dingus.voltagesModulator` | stepped voltage modulator | `uVOLT_<name>.json` |
+| `dingus.pluginStereo` | stereo plug-in host (`vst~`) with 3 parameter inputs (0..1) | (studio patch) |
+| `dingus.plugin16in` | stereo plug-in host with 16 parameter inputs (0..1) | (studio patch) |
+| `dingus.pluginSideChain` | stereo plug-in host with a stereo sidechain input (`mcs.vst~ 4 2`) and 3 parameter inputs | (studio patch) |
+| `dingus.pluginGRM` | GRM Tools Atelier (VST3) with 16 parameter inputs (0..1) | (studio patch) |
+| `dingus.pluginGRM32` | GRM Tools Atelier (VST3) with 32 parameter inputs (0..1) | (studio patch) |
 | `dingus.gatesSeq` | gate sequencer: gates on steps, spanning steps, length of the last step, per-gate lanes | `uGATE_<name>.json` |
 
 Scripts (`javascript/`):
