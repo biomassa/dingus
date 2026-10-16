@@ -1,0 +1,22 @@
+{
+    "name": "dingus",
+    "displayname": "dingus",
+    "version": "0.1.0",
+    "author": "biomassa",
+    "authors": [],
+    "description": "bpatchers for a modular studio in Max: sequencers, modulators, clocks, plug-in hosts, mixer, ES-8 and controller I/O.",
+    "tags": [ "bpatcher", "sequencer", "modulation", "ES-8" ],
+    "website": "https://github.com/biomassa/dingus",
+    "extends": "",
+    "extensible": 0,
+    "max_version_min": "9.0",
+    "max_version_max": "none",
+    "os": {
+        "macintosh": {
+            "min_version": "none",
+            "platform": [ "aarch64", "x64" ]
+        }
+    },
+    "homepatcher": "",
+    "filelist": {}
+}
