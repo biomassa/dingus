@@ -8,7 +8,7 @@
 
 *`dingus.pitchGateSeq`*
 
-dingus is a Max package of bpatchers for a modular studio. It has sequencers, modulators, clocks, plug-in hosts, a mixer, and I/O for the ES-8 and for MIDI controllers. You need Max 9.
+dingus is a  Max package of bpatchers for integrating Max with modular synthesizer. It is very much tailored to my own needs and is hardly useful for anyone else, but I'm still sharing it in case anyone finds something handy there. The bpatchers are largely focused on scala files / microtonal tunings and controlled randomness. You need Max 9.
 
 ## Installation
 
@@ -17,7 +17,7 @@ dingus is a Max package of bpatchers for a modular studio. It has sequencers, mo
 3. Make a presets folder. Refer to [Presets folder](#presets-folder).
 4. Start Max again.
 
-## How to use a bpatcher
+## How to use bpatchers
 
 Each file name starts with `dingus.`. Add a bpatcher to a patch with its file name:
 
