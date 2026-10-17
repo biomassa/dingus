@@ -57,7 +57,7 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 | bpatcher | Function | Presets file |
 |---|---|---|
 | `dingus.gestureLooper` | Records and plays MPE gestures. Put it between `midiin` and a note bpatcher. It has 32 sequences and a piano roll with lanes for pressure, Y, bend, velocity and probability. It has overdub, undo and a phasor clock. | `gestureLooper_<name>.json` |
-| `dingus.pitchGateSeq` | A monophonic pitch and gate sequencer with a piano roll. The rows come from a Scala tuning. Each note has lanes for velocity, glide, ratchets, fade and duty. It has chance lanes, beats per step and a play range. | `uPG_<name>.json` |
+| `dingus.pitchGateSeq` | A monophonic pitch and gate sequencer with a piano roll. The rows come from a Scala tuning. Each note has lanes for velocity, glide, ratchets, fade and duty. It has chance lanes, beats per step and a play range. It has 32 sequences. A new sequence starts at the next phasor wrap. | `uPG_<name>.json`, sequences in `uPGseq_<name>.json` |
 | `dingus.pitchSeq` | A step pitch sequencer for Scala tunings. It has a pitch grid, a delay for each step and a tuning slider. | `uPITCH_<name>.json` |
 | `dingus.gatesSeq` | A gate sequencer. A gate can span many steps. A lane sets the length of the last step of each gate. | `uGATE_<name>.json` |
 | `dingus.voltagesModulator` | A stepped voltage modulator. | `uVOLT_<name>.json` |

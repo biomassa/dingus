@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `dingus.pitchGateSeq`: 32 sequences. A sequence has its notes, lanes, chance lanes, play range and step count. The scale mask and the tuning are shared.
+- `dingus.pitchGateSeq`: a `seq` box with − and + buttons, copy, paste and clear for the current sequence, and an inlet (at the far right) for the sequence number 1 to 32.
+- `dingus.pitchGateSeq`: a sequence that you choose while the clock runs takes over at the phasor wrap, sample-exact. It starts at its first step, and the PTN counter starts again. When the clock stops for 0.1 s, or audio or play is off, the sequence changes at once.
+- `dingus.pitchGateSeq`: all 32 sequences are in `uPGseq_<name>.json` in the presets folder. The first time, the notes of each slot in the presets file become a sequence (slot n = sequence n).
+
+### Changed
+
+- `dingus.pitchGateSeq`: presets keep the sequence number and the scale mask, not the notes. The `steps` box and the `clear all` button are no longer in presets.
+- `dingus.pitchGateSeq`: `clear all` empties all 32 sequences. It asks for confirmation first.
+- `dingus.pitchGateSeq`: the gen~ engine has two banks of note and chance tables and a sixth outlet (the bank that plays). The buffers have their size in samples.
+
 ## [0.1.0] - 2026-10-17
 
 First release. The bpatchers come from the earlier folder `mine/! bpatchers` and have new names.

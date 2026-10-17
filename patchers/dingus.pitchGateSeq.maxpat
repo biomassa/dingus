@@ -230,7 +230,7 @@
                     "numoutlets": 2,
                     "outlettype": [ "float", "bang" ],
                     "patching_rect": [ 40.0, 560.0, 140.0, 22.0 ],
-                    "text": "buffer~ #0-pg 100 22"
+                    "text": "buffer~ #0-pg @samps 4352 @chans 22"
                 }
             },
             {
@@ -252,7 +252,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 400.0, 200.0, 200.0, 22.0 ],
-                    "text": "buffer #0-pg, chbuffer #0-pgch"
+                    "text": "buffer #0-pg, chbuffer #0-pgch, seqname #1"
                 }
             },
             {
@@ -973,8 +973,8 @@
                     "id": "g_gen",
                     "maxclass": "newobj",
                     "numinlets": 6,
-                    "numoutlets": 5,
-                    "outlettype": [ "signal", "signal", "signal", "signal", "signal" ],
+                    "numoutlets": 6,
+                    "outlettype": [ "signal", "signal", "signal", "signal", "signal", "signal" ],
                     "patcher": {
                         "fileversion": 1,
                         "appversion": {
@@ -1056,15 +1056,15 @@
                             },
                             {
                                 "box": {
-                                    "code": "// uPG engine: steps from the phasor, notes from the note tables (dingus.pgRoll.js)\n// note buffer: frame = step * 16 + slot; ch 0-10 forward table, ch 11-21 reverse table\n//   slot: offset, length (0 = end), pitch (MIDI), ratchets, velocity, duty, glide, degree, fade, note index, room\n//   pitch table: frame 1024 + degree: ch 0 MIDI, ch 1 scale degrees at or below, ch 2 below; 1024 ch 3 count\n//   scale list: frame 1536 + n: ch 0 degree index of the n-th scale degree\n// chance buffer: frame = lane * 1024 + note index: op, prob, ptnA, ptnB, amount\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// in5 range start mod (-1..1, x steps) in6 range end mod (-1..1, x steps)\n// out1 gate or trigger (level = velocity of the current hit)  out2 velocity of the current hit (held)\n// out3 current step  out4 envelope gate (every ratchet, or whole note)  out5 pitch (tuned MIDI float, glides)\nBuffer gb(\"dingus-pg-none\");\nBuffer cb(\"dingus-pgch-none\");\nParam steps(5, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\nParam lanes(0, min=0, max=32);\nParam cscale(1, min=0, max=2);\nParam ptnmode(0, min=0, max=1);\nParam barcount(0, min=0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory base(0);\nHistory slot(16);\nHistory tb(0);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory ppitch(0);\nHistory pfrom(0);\nHistory pto(0);\nHistory gpos(0);\nHistory gdur(0);\nHistory havep(0);\nHistory gfade(0);\nHistory hvel(0);\nHistory reps(-1);\nHistory jt(-1);\nHistory tienext(0);\n\nn = clamp(floor(steps + in3 * steps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\nfr = 0;\no = 0;\nL = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\nfcut = 64;\ng = 0;\nlo = 0;\nhi = 0;\nhit = 0;\neg = 0;\ngl = 0;\nhn = 0;\nfa = 0;\nfm = 0;\nok = 0;\nsk = 0;\ns = 0;\nj = 0;\nk = 0;\nq = 0;\ni = 0;\nfr2 = 0;\nni = 0;\ncf = 0;\nop = 0;\npa = 0;\npb = 0;\ncnt = 0;\npok = 0;\namt = 0;\nmuted = 0;\ncv = 0;\nclen = 0;\ncrat = 0;\npidx = 0;\nroom = 0;\ntie = 0;\nsdir = 0;\nscnt = 0;\ntot = 0;\nrle = 0;\nrlt = 0;\ntgt = 0;\nrr = 0;\nspan = 1;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running note (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip, plus modulation\nlo = clamp(rstart + floor(in5 * n + 0.5), 0, n - 1);\nhi = clamp(rend + floor(in6 * n + 0.5), lo, n - 1);\nspan = hi - lo + 1;\n\n// PTN counter: pattern repeats (times the loop restarts) or bars (from the bar inlet)\ncnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t\treps = -1;\n\t\tjt = -1;\n\t} else if (jt >= 0) {\n\t\t// a jump op from the step before\n\t\tnxt = clamp(jt, lo, hi);\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t}\n\tjt = -1;\n\t// a new repeat starts each time the loop's first step comes up\n\tif (nxt == ((d == 1) ? hi : lo)) {\n\t\treps = reps + 1;\n\t}\n\tcnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\t// SKIP / UNSKIP ops of the notes starting in the step: rolled before the step plays\n\tfor (i = 0; i < n; i += 1) {\n\t\tsk = 0;\n\t\tfor (j = 0; j < 16; j += 1) {\n\t\t\tfr2 = nxt * 16 + j;\n\t\t\tif (peek(gb, fr2, 1) <= 0) {\n\t\t\t\tbreak;\n\t\t\t}\n\t\t\tni = peek(gb, fr2, 9);\n\t\t\ts = 0;\n\t\t\tfor (k = 0; k < lanes; k += 1) {\n\t\t\t\tcf = k * 1024 + ni;\n\t\t\t\top = peek(cb, cf, 0);\n\t\t\t\tif (op == 3 || op == 4) {\n\t\t\t\t\tpa = peek(cb, cf, 2);\n\t\t\t\t\tpb = peek(cb, cf, 3);\n\t\t\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\t\t\tif (pok && noise() * 0.5 + 0.5 < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\t\t\ts = (op == 3) ? 1 : 0;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t\tif (s > 0) {\n\t\t\t\tsk = 1;\n\t\t\t}\n\t\t}\n\t\tif (sk == 0) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tbase = nxt * 16;\n\tslot = (ok > 0) ? 0 : 16;\n\ttb = (d == 1) ? 11 : 0;\n}\n\n// notes of the current step, in order of their offset into the step\n// (forward: their start; reverse: their mirrored start = played end)\nif (running && slot < 16) {\n\tfr = base + slot;\n\tL = peek(gb, fr, tb + 1);\n\tif (L <= 0) {\n\t\tslot = 16;\n\t} else {\n\t\to = peek(gb, fr, tb);\n\t\tif (sub >= o) {\n\t\t\tslot = slot + 1;\n\t\t\tfire = 1;\n\t\t\tfidx = fr;\n\t\t\t// forward: cut at the end of the play range\n\t\t\tfcut = (d == 0) ? hi + 1 - cur - o : 64;\n\t\t\tflen = min(L, fcut);\n\t\t}\n\t}\n}\n\nif (fire > 0 && flen > 0) {\n\t// chance lanes, top to bottom; every note rolls its own dice\n\tni = peek(gb, fidx, tb + 9);\n\troom = peek(gb, fidx, tb + 10);\n\tcv = peek(gb, fidx, tb + 4);\n\tclen = flen;\n\tcrat = max(peek(gb, fidx, tb + 3), 1);\n\tpidx = peek(gb, fidx, tb + 7);\n\tmuted = 0;\n\ttie = 0;\n\tfor (k = 0; k < lanes; k += 1) {\n\t\tcf = k * 1024 + ni;\n\t\top = peek(cb, cf, 0);\n\t\tif (op > 0) {\n\t\t\tpa = peek(cb, cf, 2);\n\t\t\tpb = peek(cb, cf, 3);\n\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\tif (pok && noise() * 0.5 + 0.5 < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\tamt = peek(cb, cf, 4);\n\t\t\t\tsdir = 0;\n\t\t\t\tscnt = 0;\n\t\t\t\tif (op == 1) {\n\t\t\t\t\tmuted = 1;\n\t\t\t\t} else if (op == 2) {\n\t\t\t\t\tmuted = 0;\n\t\t\t\t} else if (op == 5) {\n\t\t\t\t\tjt = lo + wrap(cur - amt - lo, 0, span);\n\t\t\t\t} else if (op == 6) {\n\t\t\t\t\tjt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t\t\t\t} else if (op == 7) {\n\t\t\t\t\tjt = lo + wrap(cur + amt - lo, 0, span);\n\t\t\t\t} else if (op == 8) {\n\t\t\t\t\tjt = amt - 1;\n\t\t\t\t} else if (op == 9) {\n\t\t\t\t\tcv = max(0, cv - amt / 100);\n\t\t\t\t} else if (op == 10) {\n\t\t\t\t\tcv = min(1, cv + amt / 100);\n\t\t\t\t} else if (op == 11) {\n\t\t\t\t\tcv = 1;\n\t\t\t\t} else if (op == 12) {\n\t\t\t\t\tclen = max(clen - amt, 0.01);\n\t\t\t\t} else if (op == 13) {\n\t\t\t\t\tclen = min(clen + amt, max(room, clen));\n\t\t\t\t} else if (op == 14) {\n\t\t\t\t\tclen = max(room, clen);\n\t\t\t\t\ttie = 1;\n\t\t\t\t} else if (op == 15) {\n\t\t\t\t\tcrat = amt;\n\t\t\t\t} else if (op == 16) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 17) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 18) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = 1 + min(floor((noise() * 0.5 + 0.5) * amt), amt - 1);\n\t\t\t\t} else if (op == 19) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = 1 + min(floor((noise() * 0.5 + 0.5) * amt), amt - 1);\n\t\t\t\t} else if (op == 20) {\n\t\t\t\t\trr = min(floor((noise() * 0.5 + 0.5) * (2 * amt + 1)), 2 * amt) - amt;\n\t\t\t\t\tsdir = (rr < 0) ? -1 : 1;\n\t\t\t\t\tscnt = abs(rr);\n\t\t\t\t}\n\t\t\t\t// pitch ops: move by scale degrees (degrees in the scale mask), via the rank tables:\n\t\t\t\t// ch 1 = scale degrees at or below an index, ch 2 = below it, list at 1536 + n\n\t\t\t\tif (sdir != 0 && scnt > 0) {\n\t\t\t\t\ttot = peek(gb, 1024, 3);\n\t\t\t\t\trle = peek(gb, 1024 + pidx, 1);\n\t\t\t\t\trlt = peek(gb, 1024 + pidx, 2);\n\t\t\t\t\tif (tot > 0) {\n\t\t\t\t\t\tif (sdir > 0) {\n\t\t\t\t\t\t\trr = min(rle + scnt - 1, tot - 1);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = max(pidx, tgt);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trr = max(rlt - scnt, 0);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = min(pidx, tgt);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\tclen = min(clen, fcut);\n\tif (muted == 0) {\n\t\tif (lastout > 0 && trig == 0 && tienext == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\ttienext = tie;\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = clen;\n\t\tgrat = max(crat, 1);\n\t\tgvel = cv;\n\t\tgduty = peek(gb, fidx, tb + 5);\n\t\tgfade = peek(gb, fidx, tb + 8);\n\t\tgfill = min(clen, 1);\n\t\thitprev = -1;\n\t\t// pitch: jump, or glide from the current pitch over GLIDE steps\n\t\tgl = peek(gb, fidx, tb + 6);\n\t\tif (havep > 0 && gl > 0) {\n\t\t\tpfrom = ppitch;\n\t\t\tgdur = gl;\n\t\t\tgpos = 0;\n\t\t} else {\n\t\t\tgdur = 0;\n\t\t}\n\t\tpto = (pidx >= 0 && pidx < 512) ? peek(gb, 1024 + pidx, 0) : peek(gb, fidx, tb + 2);\n\t\thavep = 1;\n\t}\n}\n\nif (gdur > 0) {\n\tgpos = gpos + adv;\n\tppitch = pfrom + (pto - pfrom) * min(gpos / gdur, 1);\n\tif (gpos >= gdur) {\n\t\tgdur = 0;\n\t}\n} else {\n\tppitch = pto;\n}\n\n// FADE: velocity per ratchet hit, exponential; < 0 rises to VEL, > 0 falls from VEL;\n// at +-50 the quietest hit is 1% of VEL\nif (act > 0) {\n\thvel = gvel;\n\tif (grat > 1 && gfade != 0) {\n\t\thn = min(floor(el / glen * grat), grat - 1) / (grat - 1);\n\t\tfm = pow(0.01, abs(gfade) / 50);\n\t\tfa = (gfade < 0) ? pow(fm, 1 - hn) : pow(fm, hn);\n\t\thvel = gvel * fa;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per note / ratchet hit, 1..10 ms\n\t// pulse length from the note length (up to 1 step), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = hvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole note evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = hvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = hvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new note follows a high one, so it retriggers (not after TIE)\n// envelope gate: every ratchet hit, or the whole note\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = hvel;\nout3 = cur;\nout4 = eg;\nout5 = ppitch;\n",
+                                    "code": "// uPG engine: steps from the phasor, notes from the note tables (dingus.pgRoll.js)\n// note buffer: frame = step * 16 + slot; ch 0-10 forward table, ch 11-21 reverse table\n//   slot: offset, length (0 = end), pitch (MIDI), ratchets, velocity, duty, glide, degree, fade, note index, room\n//   pitch table: frame 1024 + degree: ch 0 MIDI, ch 1 scale degrees at or below, ch 2 below; 1024 ch 3 count\n//   scale list: frame 1536 + n: ch 0 degree index of the n-th scale degree\n// chance buffer: frame = lane * 1024 + note index: op, prob, ptnA, ptnB, amount\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// in5 range start mod (-1..1, x steps) in6 range end mod (-1..1, x steps)\n// out1 gate or trigger (level = velocity of the current hit)  out2 velocity of the current hit (held)\n// out3 current step  out4 envelope gate (every ratchet, or whole note)  out5 pitch (tuned MIDI float, glides)\n// out6 the bank that plays (0 / 1)\n// two banks of note and chance tables, one per sequence: bank b's notes at frame b * 2048, its chance\n//   cells at b * 32768; its meta at frame 4096 + b: ch 0 steps, ch 1 range start, ch 2 range end,\n//   ch 3 chance lanes. pend = the bank of a waiting sequence (-1 none): it takes over at the phasor\n//   wrap, at once when the clock stands still (0.1 s) or play is off, or when swapnow changes.\n//   The new sequence starts at its first step, with the PTN count from 0.\nBuffer gb(\"dingus-pg-none\");\nBuffer cb(\"dingus-pgch-none\");\nParam steps(5, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\nParam lanes(0, min=0, max=32);\nParam cscale(1, min=0, max=2);\nParam ptnmode(0, min=0, max=1);\nParam barcount(0, min=0);\nParam pend(-1, min=-1, max=1);\nParam swapnow(0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory base(0);\nHistory slot(16);\nHistory tb(0);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory ppitch(0);\nHistory pfrom(0);\nHistory pto(0);\nHistory gpos(0);\nHistory gdur(0);\nHistory havep(0);\nHistory gfade(0);\nHistory hvel(0);\nHistory reps(-1);\nHistory jt(-1);\nHistory tienext(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\n\n// bank swap, before anything reads the tables of this sample\nwrapped = (in1 - pph) < -0.5;\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pend >= 0 && pend != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pend;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 2048;\ncbo = bk * 32768;\nmb = 4096 + bk;\nmsteps = max(peek(gb, mb, 0), 1);\nmrs = peek(gb, mb, 1);\nmre = peek(gb, mb, 2);\nmlanes = peek(gb, mb, 3);\n\nn = clamp(floor(msteps + in3 * msteps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\nfr = 0;\no = 0;\nL = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\nfcut = 64;\ng = 0;\nlo = 0;\nhi = 0;\nhit = 0;\neg = 0;\ngl = 0;\nhn = 0;\nfa = 0;\nfm = 0;\nok = 0;\nsk = 0;\ns = 0;\nj = 0;\nk = 0;\nq = 0;\ni = 0;\nfr2 = 0;\nni = 0;\ncf = 0;\nop = 0;\npa = 0;\npb = 0;\ncnt = 0;\npok = 0;\namt = 0;\nmuted = 0;\ncv = 0;\nclen = 0;\ncrat = 0;\npidx = 0;\nroom = 0;\ntie = 0;\nsdir = 0;\nscnt = 0;\ntot = 0;\nrle = 0;\nrlt = 0;\ntgt = 0;\nrr = 0;\nspan = 1;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running note (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip, plus modulation\nlo = clamp(mrs + floor(in5 * n + 0.5), 0, n - 1);\nhi = clamp(mre + floor(in6 * n + 0.5), lo, n - 1);\nspan = hi - lo + 1;\n\n// PTN counter: pattern repeats (times the loop restarts) or bars (from the bar inlet)\ncnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t\treps = -1;\n\t\tjt = -1;\n\t} else if (jt >= 0) {\n\t\t// a jump op from the step before\n\t\tnxt = clamp(jt, lo, hi);\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t}\n\tjt = -1;\n\t// a new repeat starts each time the loop's first step comes up\n\tif (nxt == ((d == 1) ? hi : lo)) {\n\t\treps = reps + 1;\n\t}\n\tcnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\t// SKIP / UNSKIP ops of the notes starting in the step: rolled before the step plays\n\tfor (i = 0; i < n; i += 1) {\n\t\tsk = 0;\n\t\tfor (j = 0; j < 16; j += 1) {\n\t\t\tfr2 = nb + nxt * 16 + j;\n\t\t\tif (peek(gb, fr2, 1) <= 0) {\n\t\t\t\tbreak;\n\t\t\t}\n\t\t\tni = peek(gb, fr2, 9);\n\t\t\ts = 0;\n\t\t\tfor (k = 0; k < mlanes; k += 1) {\n\t\t\t\tcf = cbo + k * 1024 + ni;\n\t\t\t\top = peek(cb, cf, 0);\n\t\t\t\tif (op == 3 || op == 4) {\n\t\t\t\t\tpa = peek(cb, cf, 2);\n\t\t\t\t\tpb = peek(cb, cf, 3);\n\t\t\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\t\t\tif (pok && noise() * 0.5 + 0.5 < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\t\t\ts = (op == 3) ? 1 : 0;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t\tif (s > 0) {\n\t\t\t\tsk = 1;\n\t\t\t}\n\t\t}\n\t\tif (sk == 0) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tbase = nb + nxt * 16;\n\tslot = (ok > 0) ? 0 : 16;\n\ttb = (d == 1) ? 11 : 0;\n}\n\n// notes of the current step, in order of their offset into the step\n// (forward: their start; reverse: their mirrored start = played end)\nif (running && slot < 16) {\n\tfr = base + slot;\n\tL = peek(gb, fr, tb + 1);\n\tif (L <= 0) {\n\t\tslot = 16;\n\t} else {\n\t\to = peek(gb, fr, tb);\n\t\tif (sub >= o) {\n\t\t\tslot = slot + 1;\n\t\t\tfire = 1;\n\t\t\tfidx = fr;\n\t\t\t// forward: cut at the end of the play range\n\t\t\tfcut = (d == 0) ? hi + 1 - cur - o : 64;\n\t\t\tflen = min(L, fcut);\n\t\t}\n\t}\n}\n\nif (fire > 0 && flen > 0) {\n\t// chance lanes, top to bottom; every note rolls its own dice\n\tni = peek(gb, fidx, tb + 9);\n\troom = peek(gb, fidx, tb + 10);\n\tcv = peek(gb, fidx, tb + 4);\n\tclen = flen;\n\tcrat = max(peek(gb, fidx, tb + 3), 1);\n\tpidx = peek(gb, fidx, tb + 7);\n\tmuted = 0;\n\ttie = 0;\n\tfor (k = 0; k < mlanes; k += 1) {\n\t\tcf = cbo + k * 1024 + ni;\n\t\top = peek(cb, cf, 0);\n\t\tif (op > 0) {\n\t\t\tpa = peek(cb, cf, 2);\n\t\t\tpb = peek(cb, cf, 3);\n\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\tif (pok && noise() * 0.5 + 0.5 < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\tamt = peek(cb, cf, 4);\n\t\t\t\tsdir = 0;\n\t\t\t\tscnt = 0;\n\t\t\t\tif (op == 1) {\n\t\t\t\t\tmuted = 1;\n\t\t\t\t} else if (op == 2) {\n\t\t\t\t\tmuted = 0;\n\t\t\t\t} else if (op == 5) {\n\t\t\t\t\tjt = lo + wrap(cur - amt - lo, 0, span);\n\t\t\t\t} else if (op == 6) {\n\t\t\t\t\tjt = lo + min(floor((noise() * 0.5 + 0.5) * span), hi - lo);\n\t\t\t\t} else if (op == 7) {\n\t\t\t\t\tjt = lo + wrap(cur + amt - lo, 0, span);\n\t\t\t\t} else if (op == 8) {\n\t\t\t\t\tjt = amt - 1;\n\t\t\t\t} else if (op == 9) {\n\t\t\t\t\tcv = max(0, cv - amt / 100);\n\t\t\t\t} else if (op == 10) {\n\t\t\t\t\tcv = min(1, cv + amt / 100);\n\t\t\t\t} else if (op == 11) {\n\t\t\t\t\tcv = 1;\n\t\t\t\t} else if (op == 12) {\n\t\t\t\t\tclen = max(clen - amt, 0.01);\n\t\t\t\t} else if (op == 13) {\n\t\t\t\t\tclen = min(clen + amt, max(room, clen));\n\t\t\t\t} else if (op == 14) {\n\t\t\t\t\tclen = max(room, clen);\n\t\t\t\t\ttie = 1;\n\t\t\t\t} else if (op == 15) {\n\t\t\t\t\tcrat = amt;\n\t\t\t\t} else if (op == 16) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 17) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 18) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = 1 + min(floor((noise() * 0.5 + 0.5) * amt), amt - 1);\n\t\t\t\t} else if (op == 19) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = 1 + min(floor((noise() * 0.5 + 0.5) * amt), amt - 1);\n\t\t\t\t} else if (op == 20) {\n\t\t\t\t\trr = min(floor((noise() * 0.5 + 0.5) * (2 * amt + 1)), 2 * amt) - amt;\n\t\t\t\t\tsdir = (rr < 0) ? -1 : 1;\n\t\t\t\t\tscnt = abs(rr);\n\t\t\t\t}\n\t\t\t\t// pitch ops: move by scale degrees (degrees in the scale mask), via the rank tables:\n\t\t\t\t// ch 1 = scale degrees at or below an index, ch 2 = below it, list at 1536 + n\n\t\t\t\tif (sdir != 0 && scnt > 0) {\n\t\t\t\t\ttot = peek(gb, 1024, 3);\n\t\t\t\t\trle = peek(gb, 1024 + pidx, 1);\n\t\t\t\t\trlt = peek(gb, 1024 + pidx, 2);\n\t\t\t\t\tif (tot > 0) {\n\t\t\t\t\t\tif (sdir > 0) {\n\t\t\t\t\t\t\trr = min(rle + scnt - 1, tot - 1);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = max(pidx, tgt);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trr = max(rlt - scnt, 0);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = min(pidx, tgt);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\tclen = min(clen, fcut);\n\tif (muted == 0) {\n\t\tif (lastout > 0 && trig == 0 && tienext == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\ttienext = tie;\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = clen;\n\t\tgrat = max(crat, 1);\n\t\tgvel = cv;\n\t\tgduty = peek(gb, fidx, tb + 5);\n\t\tgfade = peek(gb, fidx, tb + 8);\n\t\tgfill = min(clen, 1);\n\t\thitprev = -1;\n\t\t// pitch: jump, or glide from the current pitch over GLIDE steps\n\t\tgl = peek(gb, fidx, tb + 6);\n\t\tif (havep > 0 && gl > 0) {\n\t\t\tpfrom = ppitch;\n\t\t\tgdur = gl;\n\t\t\tgpos = 0;\n\t\t} else {\n\t\t\tgdur = 0;\n\t\t}\n\t\tpto = (pidx >= 0 && pidx < 512) ? peek(gb, 1024 + pidx, 0) : peek(gb, fidx, tb + 2);\n\t\thavep = 1;\n\t}\n}\n\nif (gdur > 0) {\n\tgpos = gpos + adv;\n\tppitch = pfrom + (pto - pfrom) * min(gpos / gdur, 1);\n\tif (gpos >= gdur) {\n\t\tgdur = 0;\n\t}\n} else {\n\tppitch = pto;\n}\n\n// FADE: velocity per ratchet hit, exponential; < 0 rises to VEL, > 0 falls from VEL;\n// at +-50 the quietest hit is 1% of VEL\nif (act > 0) {\n\thvel = gvel;\n\tif (grat > 1 && gfade != 0) {\n\t\thn = min(floor(el / glen * grat), grat - 1) / (grat - 1);\n\t\tfm = pow(0.01, abs(gfade) / 50);\n\t\tfa = (gfade < 0) ? pow(fm, 1 - hn) : pow(fm, hn);\n\t\thvel = gvel * fa;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per note / ratchet hit, 1..10 ms\n\t// pulse length from the note length (up to 1 step), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = hvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole note evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = hvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = hvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new note follows a high one, so it retriggers (not after TIE)\n// envelope gate: every ratchet hit, or the whole note\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = hvel;\nout3 = cur;\nout4 = eg;\nout5 = ppitch;\nout6 = bk;\n",
                                     "fontface": 0,
                                     "fontname": "<Monospaced>",
                                     "fontsize": 12.0,
                                     "id": "gcode",
                                     "maxclass": "codebox",
                                     "numinlets": 6,
-                                    "numoutlets": 5,
-                                    "outlettype": [ "", "", "", "", "" ],
+                                    "numoutlets": 6,
+                                    "outlettype": [ "", "", "", "", "", "" ],
                                     "patching_rect": [ 20.0, 50.0, 640.0, 560.0 ]
                                 }
                             },
@@ -1116,6 +1116,16 @@
                                     "numoutlets": 0,
                                     "patching_rect": [ 500.0, 630.0, 45.0, 22.0 ],
                                     "text": "out 5"
+                                }
+                            },
+                            {
+                                "box": {
+                                    "id": "gout6",
+                                    "maxclass": "newobj",
+                                    "numinlets": 1,
+                                    "numoutlets": 0,
+                                    "patching_rect": [ 620.0, 630.0, 45.0, 22.0 ],
+                                    "text": "out 6"
                                 }
                             }
                         ],
@@ -1184,6 +1194,12 @@
                                 "patchline": {
                                     "destination": [ "gcode", 5 ],
                                     "source": [ "gin6", 0 ]
+                                }
+                            },
+                            {
+                                "patchline": {
+                                    "source": [ "gcode", 5 ],
+                                    "destination": [ "gout6", 0 ]
                                 }
                             }
                         ]
@@ -1670,7 +1686,7 @@
                     "numoutlets": 2,
                     "outlettype": [ "float", "bang" ],
                     "patching_rect": [ 40.0, 590.0, 150.0, 22.0 ],
-                    "text": "buffer~ #0-pgch 1100 5"
+                    "text": "buffer~ #0-pgch @samps 65536 @chans 5"
                 }
             },
             {
@@ -2223,6 +2239,301 @@
                     "patching_rect": [ 1910.0, 790.0, 120.0, 22.0 ],
                     "text": "routepass slotlist"
                 }
+            },
+            {
+                "box": {
+                    "id": "sq_bsnap",
+                    "maxclass": "newobj",
+                    "text": "snapshot~ 20",
+                    "patching_rect": [ 1250.0, 1260.0, 80.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "float" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_bchg",
+                    "maxclass": "newobj",
+                    "text": "change",
+                    "patching_rect": [ 1250.0, 1290.0, 50.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "int", "int" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_bpp",
+                    "maxclass": "newobj",
+                    "text": "prepend bankis",
+                    "patching_rect": [ 1250.0, 1320.0, 100.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_dsp",
+                    "maxclass": "newobj",
+                    "text": "dspstate~",
+                    "patching_rect": [ 1400.0, 1260.0, 70.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 4,
+                    "outlettype": [ "int", "float", "int", "int" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_dsppp",
+                    "maxclass": "newobj",
+                    "text": "prepend dsp",
+                    "patching_rect": [ 1400.0, 1290.0, 80.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_rt",
+                    "maxclass": "newobj",
+                    "text": "route engine stepsis seqis",
+                    "patching_rect": [ 600.0, 1260.0, 170.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 4,
+                    "outlettype": [ "", "", "", "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_setst",
+                    "maxclass": "newobj",
+                    "text": "prepend set",
+                    "patching_rect": [ 600.0, 1300.0, 75.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_setsq",
+                    "maxclass": "newobj",
+                    "text": "prepend set",
+                    "patching_rect": [ 700.0, 1300.0, 75.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_cmt",
+                    "maxclass": "comment",
+                    "text": "seq",
+                    "fontsize": 16.0,
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 40.0, 1230.0, 40.0, 24.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 180.0, 0.0, 36.0, 24.0 ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_box",
+                    "maxclass": "number",
+                    "maximum": 32,
+                    "minimum": 1,
+                    "numinlets": 1,
+                    "numoutlets": 2,
+                    "outlettype": [ "", "bang" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 40.0, 1260.0, 58.0, 26.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 218.0, 0.0, 44.0, 22.0 ],
+                    "textcolor": [ 0.8901960784313725, 0.6352941176470588, 0.3764705882352941, 1.0 ],
+                    "varname": "pg_seq"
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_m1",
+                    "maxclass": "newobj",
+                    "text": "- 1",
+                    "patching_rect": [ 40.0, 1300.0, 40.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "int" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_pseq",
+                    "maxclass": "newobj",
+                    "text": "prepend seq",
+                    "patching_rect": [ 40.0, 1340.0, 80.0, 22.0 ],
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_minus",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 110.0, 1260.0, 24.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 266.0, 0.0, 24.0, 22.0 ],
+                    "text": "-"
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_minus_m",
+                    "maxclass": "message",
+                    "text": "seqstep -1",
+                    "patching_rect": [ 110.0, 1300.0, 80.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_plus",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 150.0, 1260.0, 24.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 294.0, 0.0, 24.0, 22.0 ],
+                    "text": "+"
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_plus_m",
+                    "maxclass": "message",
+                    "text": "seqstep 1",
+                    "patching_rect": [ 190.0, 1300.0, 72.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_copy",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 190.0, 1260.0, 50.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 326.0, 0.0, 52.0, 22.0 ],
+                    "text": "copy"
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_copy_m",
+                    "maxclass": "message",
+                    "text": "copyseq",
+                    "patching_rect": [ 270.0, 1300.0, 70.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_paste",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 250.0, 1260.0, 54.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 382.0, 0.0, 56.0, 22.0 ],
+                    "text": "paste"
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_paste_m",
+                    "maxclass": "message",
+                    "text": "pasteseq",
+                    "patching_rect": [ 350.0, 1300.0, 70.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "sq_clear",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 320.0, 1260.0, 54.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 442.0, 0.0, 54.0, 22.0 ],
+                    "text": "clear",
+                    "textoncolor": [ 1.0, 0.34509803921568627, 0.34509803921568627, 1.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_clear_m",
+                    "maxclass": "message",
+                    "text": "clear",
+                    "patching_rect": [ 430.0, 1300.0, 70.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_dlg",
+                    "maxclass": "newobj",
+                    "text": "dialog @mode 2 @label \"Empty all 32 sequences?\"",
+                    "patching_rect": [ 1250.0, 1360.0, 300.0, 22.0 ],
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ]
+                }
+            },
+            {
+                "box": {
+                    "id": "sq_in",
+                    "maxclass": "inlet",
+                    "comment": "sequence 1-32 (takes over at the phasor wrap)",
+                    "index": 0,
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 1420.0, 20.0, 30.0, 30.0 ]
+                }
             }
         ],
         "lines": [
@@ -2761,12 +3072,6 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-9", 0 ],
-                    "source": [ "obj-8", 0 ]
-                }
-            },
-            {
-                "patchline": {
                     "destination": [ "roll", 0 ],
                     "source": [ "obj-9", 0 ]
                 }
@@ -3011,6 +3316,192 @@
                 "patchline": {
                     "destination": [ "pjs", 0 ],
                     "source": [ "pjs_slotfilter", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "g_gen", 5 ],
+                    "destination": [ "sq_bsnap", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_bsnap", 0 ],
+                    "destination": [ "sq_bchg", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_bchg", 0 ],
+                    "destination": [ "sq_bpp", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_bpp", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_dsp", 0 ],
+                    "destination": [ "sq_dsppp", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_dsppp", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "roll", 0 ],
+                    "destination": [ "sq_rt", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_rt", 0 ],
+                    "destination": [ "g_gen", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_rt", 1 ],
+                    "destination": [ "sq_setst", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_setst", 0 ],
+                    "destination": [ "steps", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_rt", 2 ],
+                    "destination": [ "sq_setsq", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_setsq", 0 ],
+                    "destination": [ "sq_box", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_box", 0 ],
+                    "destination": [ "sq_m1", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_m1", 0 ],
+                    "destination": [ "sq_pseq", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_pseq", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_minus", 0 ],
+                    "destination": [ "sq_minus_m", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_minus_m", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_plus", 0 ],
+                    "destination": [ "sq_plus_m", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_plus_m", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_copy", 0 ],
+                    "destination": [ "sq_copy_m", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_copy_m", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_paste", 0 ],
+                    "destination": [ "sq_paste_m", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_paste_m", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_clear", 0 ],
+                    "destination": [ "sq_clear_m", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_clear_m", 0 ],
+                    "destination": [ "roll", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "obj-8", 0 ],
+                    "destination": [ "sq_dlg", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_dlg", 0 ],
+                    "destination": [ "obj-9", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "sq_in", 0 ],
+                    "destination": [ "sq_m1", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "apat", 1 ],
+                    "destination": [ "sq_box", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "apat", 1 ],
+                    "destination": [ "steps", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "apat", 1 ],
+                    "destination": [ "obj-8", 0 ]
                 }
             }
         ],

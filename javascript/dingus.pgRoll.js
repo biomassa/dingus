@@ -22,6 +22,12 @@
 //        steps, step number, VEL points, step fractions, ratchets, scale degrees),
 //        shift-click = next PTN, shift-alt-click = previous PTN. lanes act top to bottom.
 // RANGE strip (top): play range in whole steps. drag an end / the middle; double-click = full range
+// SEQUENCES: 32, each with its notes, lanes, chance lanes, play range and step count (the scale mask
+//        and the tuning are shared). The shown sequence plays from one engine bank; a newly chosen one
+//        is written to the other bank and takes over at the phasor wrap (the engine swaps; 'bankis'
+//        confirms). Selections made before the confirmation wait for it. All 32 are saved to
+//        <presets folder>/uPGseq_<name>.json on every change; the first time, the notes of the
+//        presets file's slots become sequences (slot n = sequence n).
 // dragging a note above / below the roll scrolls the view (outlet 0: 'low n' for the low box);
 //        notes outside the view show as an orange bar along the top / bottom edge
 //
@@ -30,8 +36,14 @@
 //   buffer name        buffer~ for the note tables and the pitch table
 //   chbuffer name      buffer~ for the chance cells
 //   notes ...          set everything (stored format), no output
-//   clear              delete all notes
-//   clearall           notes, chance lanes, range (full) and scale mask (all on)
+//   clear              delete the notes of the current sequence
+//   clearall           empty all 32 sequences (the scale mask stays)
+//   seq n              sequence 0..31 (at the phasor wrap while the engine runs)
+//   seqstep d          the sequence d up / down (from a waiting one), 0..31 without wrapping
+//   copyseq / pasteseq copy the current sequence / replace the current sequence with the copy
+//   seqname name       the instance name: reads (or migrates) the sequences file
+//   bankis b           the engine's playing bank (from gen~ out6)
+//   dsp 0|1            audio on / off (off: sequences switch at once)
 //   bang               output the stored list
 //   snap 0|1           snap to the beat grid on / off (any value > 0 = on)
 //   setmin n / setmax n   lowest / highest displayed degree index
@@ -41,8 +53,11 @@
 //   labelwidth n       width of the label column
 // inlet 1:
 //   int                current step (playhead)
-// outlet 0: stored list after each edit; 'needbuffer' at load; 'range start end'; 'lanes n'; 'low n' (scrolled)
+// outlet 0: stored list after each edit; 'needbuffer' at load; 'range start end'; 'lanes n'; 'low n' (scrolled);
+//   'engine pend b' / 'engine swapnow k' (to gen~); 'stepsis n' and 'seqis n' (1..32) for the boxes
 //
+// pattr value: -5 sequence masklen mask... (older presets: the full stored list below; after the
+//   migration only its mask is used)
 // stored list: -4 n rstart rend  masklen mask...  chancelanes  notecount  notes
 //   note: start length pitch vel glide ratch duty fade, then per chance lane: op prob ptnA ptnB amount
 //
@@ -54,10 +69,12 @@
 //             3 pitch, tuned MIDI float (as th.stof -> ftom)  4 ratchets  5 velocity  6 duty
 //             7 glide (steps)  8 pitch degree index  9 fade (-50..50)  10 note index
 //             11 room (steps to the next note or the end)
+//   bank 1's note tables at frames 2048..3071 (same layout); meta at 4096 + bank: steps, range start,
+//   range end, chance lanes (ch 1-4)
 //   pitch table, frames 1024 + degree index (0..511): ch 1 tuned MIDI float,
 //     ch 2 scale degrees at or below this index, ch 3 scale degrees below it; frame 1024 ch 4: scale degree count
 //   scale list, frames 1536 + n: ch 1 degree index of the n-th scale degree
-// chance buffer~: frame = lane * 1024 + note index, 5 channels: op prob ptnA ptnB amount
+// chance buffer~: frame = bank * 32768 + lane * 1024 + note index, 5 channels: op prob ptnA ptnB amount
 //   ops: see OPS (index = op number)
 // ===========================================================
 
@@ -86,6 +103,11 @@ var LISTBASE = 1536; // list of the degrees in the scale mask, in order
 var MAXCH = 32;      // chance lanes
 var CHF = 5;         // fields per chance cell
 var EPS = 1e-6;
+var NSEQ = 32;
+var BANKF = 2048;    // note-table frames per bank
+var METABASE = 4096; // frame METABASE + bank: steps, range start, range end, chance lanes
+var CHBANK = 32768;  // chance frames per bank (MAXCH * MAXNOTES)
+var PREFIX = 'uPG';  // presets file prefix (dingus.presetFile.js); sequences: uPGseq_<name>.json
 
 // --- state -------------------------------------------------
 var n = 5;
@@ -94,6 +116,17 @@ var chN = 0;           // chance lanes
 var chBufName = '';
 var menu = null;       // open op menu: {nt, li, x, y}
 var playhead = -1;
+var seqs = [];         // the 32 sequences as stored lists without the mask (null = empty)
+var cur = 0;           // the shown sequence, which plays from bank 'bank'
+var bank = 0;
+var pend = -1;         // a sequence written to the other bank, waiting for the engine's swap
+var queued = -1;       // a selection made while a swap is not confirmed yet
+var swapCount = 0;
+var dspOn = 1;
+var clip = null;       // copied sequence
+var seqName = '';      // instance name ('' until seqname)
+var seqsLoaded = false;
+for (var si = 0; si < NSEQ; si++) seqs.push(null);
 var labelW = 78;
 var bufName = '';
 var rStart = 0;
@@ -521,14 +554,30 @@ function cellText(c) {
 cellText.local = 1;
 
 // --- buffer~ -----------------------------------------------
+// the shown sequence into its bank, the shared pitch tables, and its chance cells
 function writeBuffer() {
-	if (!bufName) return;
+	writeNotes(bank);
+	writePitch();
+	writeChance(bank);
+}
+writeBuffer.local = 1;
+
+function noteBuffer() {
+	if (!bufName) return null;
 	var buf = new Buffer(bufName);
-	var frames = LISTBASE + PTN_N;
-	if (buf.framecount() < frames || buf.channelcount() < NCH) {
-		post('dingus.pgRoll: buffer~ ' + bufName + ' needs ' + frames + ' samples and ' + NCH + ' channels\n');
-		return;
+	if (buf.framecount() < METABASE + 2 || buf.channelcount() < NCH) {
+		post('dingus.pgRoll: buffer~ ' + bufName + ' needs ' + (METABASE + 2) + ' samples and ' + NCH + ' channels\n');
+		return null;
 	}
+	return buf;
+}
+noteBuffer.local = 1;
+
+// note tables of the current state (n, notes, range, lanes) into bank bk, with its meta
+function writeNotes(bk) {
+	var buf = noteBuffer();
+	if (!buf) return;
+	var frames = MAXNOTES;
 	var cols = [];
 	var c, i, k;
 	for (c = 0; c < NCH; c++) {
@@ -581,31 +630,45 @@ function writeBuffer() {
 		rcount[k]++;
 	}
 	if (full) post('dingus.pgRoll: more than ' + SLOTS + ' notes in one step, the extra ones do not play\n');
+	for (c = 0; c < NCH; c++) buf.poke(c + 1, bk * BANKF, cols[c]);
+	buf.poke(1, METABASE + bk, [n]);
+	buf.poke(2, METABASE + bk, [rStart]);
+	buf.poke(3, METABASE + bk, [rEnd]);
+	buf.poke(4, METABASE + bk, [chN]);
+}
+writeNotes.local = 1;
+
+function writePitch() {
+	var buf = noteBuffer();
+	if (!buf) return;
+	var cols = [[], [], [], []];
+	var c, i;
+	for (c = 0; c < 4; c++) for (i = 0; i < LISTBASE + PTN_N - PTBASE; i++) cols[c].push(0);
 	// pitch tables for the pitch ops: per degree index its MIDI pitch, how many scale degrees lie
 	// at or below it and how many below it; then the scale degrees in order (no loops needed in gen~)
 	var cnt = 0;
+	var L = LISTBASE - PTBASE;
 	for (i = 0; i < PTN_N; i++) {
 		var on = inScale(i);
-		cols[0][PTBASE + i] = midiOf(i);
-		cols[2][PTBASE + i] = cnt;
+		cols[0][i] = midiOf(i);
+		cols[2][i] = cnt;
 		if (on) {
-			cols[0][LISTBASE + cnt] = i;
+			cols[0][L + cnt] = i;
 			cnt++;
 		}
-		cols[1][PTBASE + i] = cnt;
+		cols[1][i] = cnt;
 	}
-	cols[3][PTBASE] = cnt;
-	for (c = 0; c < NCH; c++) buf.poke(c + 1, 0, cols[c]);
-	writeChance();
+	cols[3][0] = cnt;
+	for (c = 0; c < 4; c++) buf.poke(c + 1, PTBASE, cols[c]);
 }
-writeBuffer.local = 1;
+writePitch.local = 1;
 
-function writeChance() {
+function writeChance(b) {
 	if (!chBufName || !chN) return;
 	var buf = new Buffer(chBufName);
 	var frames = chN * MAXNOTES;
-	if (buf.framecount() < MAXCH * MAXNOTES || buf.channelcount() < CHF) {
-		post('dingus.pgRoll: buffer~ ' + chBufName + ' needs ' + (MAXCH * MAXNOTES) + ' samples and ' + CHF + ' channels\n');
+	if (buf.framecount() < 2 * CHBANK || buf.channelcount() < CHF) {
+		post('dingus.pgRoll: buffer~ ' + chBufName + ' needs ' + (2 * CHBANK) + ' samples and ' + CHF + ' channels\n');
 		return;
 	}
 	var cols = [], c, i, l;
@@ -625,15 +688,17 @@ function writeChance() {
 			cols[4][f] = opValue(cl);
 		}
 	}
-	for (c = 0; c < CHF; c++) buf.poke(c + 1, 0, cols[c]);
+	for (c = 0; c < CHF; c++) buf.poke(c + 1, b * CHBANK, cols[c]);
 }
 writeChance.local = 1;
 
 // --- serialization -----------------------------------------
-function flat() {
-	var a = [-FORMAT, n, rStart, rEnd, mask.length];
+// noMask: a sequence (mask length 0); the mask belongs to the tuning
+function flat(noMask) {
+	var ml = noMask ? 0 : mask.length;
+	var a = [-FORMAT, n, rStart, rEnd, ml];
 	var i;
-	for (i = 0; i < mask.length; i++) a.push(mask[i]);
+	for (i = 0; i < ml; i++) a.push(mask[i]);
 	a.push(chN, notes.length);
 	for (i = 0; i < notes.length; i++) {
 		var nt = notes[i];
@@ -658,8 +723,10 @@ function unflat(a) {
 	var ml = Math.round(a[i++]);
 	var m = [];
 	for (k = 0; k < ml && i < a.length; k++) m.push(a[i++] ? 1 : 0);
-	if (m.length === scl.size) { mask = m; pendingMask = null; }
-	else pendingMask = m;
+	if (ml > 0) {
+		if (m.length === scl.size) { mask = m; pendingMask = null; }
+		else pendingMask = m;
+	}
 	chN = 0;
 	if (ver >= 4) chN = Math.max(0, Math.min(MAXCH, Math.round(a[i++]) || 0));
 	var nc = Math.round(a[i++]) || 0;
@@ -702,7 +769,9 @@ unflat.local = 1;
 var keep = new Global("dingusPGRollState");
 
 function park() {
-	if (bufName) keep[bufName] = flat();
+	if (!bufName) return;
+	keep[bufName] = flat();
+	keep[bufName + ' seqs'] = { seqs: seqs.slice(), cur: cur, bank: bank, loaded: seqsLoaded, name: seqName };
 }
 park.local = 1;
 
@@ -720,10 +789,13 @@ sendRange.local = 1;
 function changed(out) {
 	sortNotes();
 	clampRange();
+	seqs[cur] = flat(true);
 	park();
 	writeBuffer();
 	sendRange();
 	outlet(0, "lanes", chN);
+	outlet(0, "stepsis", n);
+	scheduleSave();
 	fitBox();
 	mgraphics.redraw();
 	notifyclients();
@@ -1023,6 +1095,16 @@ function paint() {
 	g.set_source_rgba(0.85, 0.83, 0.78, 1);
 	g.move_to(6, RANGEH - 2);
 	g.show_text("RANGE");
+	// the shown sequence, and the one waiting for the phasor wrap
+	var nx = queued >= 0 ? queued : pend;
+	g.set_font_size(9);
+	g.set_source_rgba(0.85, 0.83, 0.78, 1);
+	g.move_to(6, RANGEH + HEADER - 3);
+	g.show_text('SEQ ' + (cur + 1));
+	if (nx >= 0) {
+		g.set_source_rgba(0.98, 0.45, 0.10, 1);
+		g.show_text(' > ' + (nx + 1));
+	}
 	g.set_source_rgba(0.35, 0.35, 0.38, 1);
 	g.set_line_width(1);
 	g.move_to(labelW, 0);
@@ -1185,6 +1267,14 @@ function chbuffer(name) {
 function buffer(name) {
 	bufName = String(name);
 	var st = keep[bufName];
+	var ks = keep[bufName + ' seqs'];
+	if (ks && ks.seqs && ks.seqs.length === NSEQ) {
+		seqs = ks.seqs.slice();
+		cur = ks.cur;
+		bank = ks.bank;
+		seqsLoaded = ks.loaded;
+		seqName = ks.name || '';
+	}
 	if (!notes.length && st && st.length) {
 		unflat(st);
 		var vw = keep[bufName + ' view'];
@@ -1229,21 +1319,245 @@ function setSnapQ() {
 setSnapQ.local = 1;
 
 
+// clear: the current sequence (notes, chance lanes, full range; the step count stays)
 function clear() {
-	notes = [];
+	emptyState();
 	changed(true);
 }
 
-// clear all: notes, chance lanes, full range, every scale degree on (tuning and settings stay)
+// clear all: all 32 sequences (the scale mask and the tuning stay)
 function clearall() {
+	for (var i = 0; i < NSEQ; i++) seqs[i] = null;
+	emptyState();
+	changed(true);
+}
+
+function emptyState() {
 	notes = [];
 	chN = 0;
 	rStart = 0;
 	rEnd = n - 1;
-	fullMask();
-	pendingMask = null;
 	menu = null;
+}
+emptyState.local = 1;
+
+// --- sequences ---------------------------------------------
+// the current state from a stored sequence (null = empty, keeping the step count)
+function loadSeq(a) {
+	if (a && a.length) unflat(a);
+	else emptyState();
+	fitBox();
+}
+loadSeq.local = 1;
+
+// run fn with sequence a as the current state, then restore the current state
+function withSeq(a, fn) {
+	var save = flat(true);
+	if (a && a.length) unflat(a);
+	else emptyState();
+	fn();
+	unflat(save);
+}
+withSeq.local = 1;
+
+function seq(v) {
+	var k = Math.max(0, Math.min(NSEQ - 1, Math.round(v) || 0));
+	outlet(0, 'seqis', k + 1);
+	if (pend >= 0) {
+		// a swap is under way: this choice waits for its confirmation
+		queued = (k === pend) ? -1 : k;
+		mgraphics.redraw();
+		return;
+	}
+	queued = -1;
+	if (k === cur) {
+		mgraphics.redraw();
+		return;
+	}
+	var ob = 1 - bank;
+	withSeq(seqs[k], function () {
+		writeNotes(ob);
+		writeChance(ob);
+	});
+	if (!dspOn) {
+		// no audio, no confirmation: switch here; the engine takes the bank when audio starts
+		swapCount++;
+		outlet(0, 'engine', 'pend', ob);
+		outlet(0, 'engine', 'swapnow', swapCount);
+		cur = k;
+		bank = ob;
+		loadSeq(seqs[cur]);
+		afterSwitch();
+		return;
+	}
+	pend = k;
+	outlet(0, 'engine', 'pend', ob);
+	park();
+	mgraphics.redraw();
+}
+
+function seqstep(d) {
+	var from = queued >= 0 ? queued : (pend >= 0 ? pend : cur);
+	var k = Math.max(0, Math.min(NSEQ - 1, from + (Math.round(d) || 0)));
+	if (k !== from) seq(k);
+}
+
+// the engine's playing bank (gen~ out6, through snapshot~ and change)
+function bankis(b) {
+	b = Math.round(b);
+	if (pend >= 0 && b === 1 - bank) {
+		cur = pend;
+		bank = b;
+		pend = -1;
+		loadSeq(seqs[cur]);
+		afterSwitch();
+		if (queued >= 0) {
+			var q = queued;
+			queued = -1;
+			seq(q);
+		}
+	} else if (pend < 0 && b !== bank) {
+		// out of step (for example after a reload): show the current sequence in the playing bank
+		bank = b;
+		changed(false);
+	}
+}
+
+function dsp(on) {
+	dspOn = on ? 1 : 0;
+}
+
+function afterSwitch() {
+	park();
+	writePitch();
+	sendRange();
+	outlet(0, 'lanes', chN);
+	outlet(0, 'stepsis', n);
+	outlet(0, 'seqis', cur + 1);
+	mgraphics.redraw();
+	notifyclients();
+	scheduleSave();
+}
+afterSwitch.local = 1;
+
+function copyseq() {
+	clip = flat(true);
+}
+
+function pasteseq() {
+	if (!clip) return;
+	unflat(clip);
 	changed(true);
+}
+
+// --- sequences file ----------------------------------------
+var paths = require('dingus.paths.js');
+
+function folder() {
+	return paths.presetFolder(this.patcher);
+}
+folder.local = 1;
+
+function seqPath() {
+	var f = folder();
+	return f && seqName ? f + PREFIX + 'seq_' + seqName + '.json' : '';
+}
+seqPath.local = 1;
+
+function readJSON(p) {
+	if (!p) return null;
+	try {
+		var f = new File(p, 'read');
+		if (!f.isopen) return null;
+		var txt = '';
+		while (f.position < f.eof) txt += f.readstring(4096);
+		f.close();
+		return JSON.parse(txt);
+	} catch (e) {
+		return null;
+	}
+}
+readJSON.local = 1;
+
+var saveTask = new Task(saveSeqs, this);
+
+function scheduleSave() {
+	if (seqsLoaded && seqName) saveTask.schedule(300);
+}
+scheduleSave.local = 1;
+
+function saveSeqs() {
+	var p = seqPath();
+	if (!p) return;
+	seqs[cur] = flat(true);
+	try {
+		var txt = JSON.stringify({ format: 1, current: cur, seqs: seqs });
+		var f = new File(p, 'write', 'TEXT');
+		if (!f.isopen) throw new Error('not open');
+		for (var i = 0; i < txt.length; i += 4096) f.writestring(txt.substring(i, i + 4096));
+		f.eof = f.position;
+		f.close();
+	} catch (e) {
+		post('dingus.pgRoll: can\'t write ' + p + '\n');
+	}
+}
+saveSeqs.local = 1;
+
+// a stored list without its mask (any format: the mask length is the fifth number)
+function stripMask(a) {
+	if (!a || a.length < 6 || a[0] > -1) return null;
+	var ml = Math.round(a[4]) || 0;
+	return a.slice(0, 4).concat([0], a.slice(5 + ml));
+}
+stripMask.local = 1;
+
+// first time: the notes of the presets file's slots become sequences (slot n = sequence n,
+// slots above 32 fill the first empty ones); without them, the current notes become sequence 1
+function migrate() {
+	var f = folder();
+	var o = f ? readJSON(f + PREFIX + '_' + seqName + '.json') : null;
+	var slots = o && o.pattrstorage && o.pattrstorage.slots ? o.pattrstorage.slots : null;
+	var found = 0, rest = [];
+	if (slots) {
+		var ids = Object.keys(slots).map(Number).sort(function (x, y) { return x - y; });
+		for (var i = 0; i < ids.length; i++) {
+			var d = slots[ids[i]] && slots[ids[i]].data;
+			var a = d ? stripMask(d.pgroll) : null;
+			if (!a) continue;
+			if (ids[i] >= 1 && ids[i] <= NSEQ) seqs[ids[i] - 1] = a;
+			else rest.push(a);
+			found++;
+		}
+		for (var r = 0, k = 0; r < rest.length && k < NSEQ; k++) {
+			if (!seqs[k]) seqs[k] = rest[r++];
+		}
+	}
+	if (!found) seqs[0] = flat(true);
+	cur = 0;
+	post('dingus.pgRoll: ' + (found ? found + ' preset slots became sequences' : 'the current notes became sequence 1') + ', saved to ' + seqPath() + '\n');
+}
+migrate.local = 1;
+
+function seqname(nm) {
+	var name = String(nm);
+	if (seqsLoaded && name === seqName) return;
+	seqName = name;
+	var o = readJSON(seqPath());
+	var fresh = false;
+	if (o && o.seqs) {
+		for (var i = 0; i < NSEQ; i++) seqs[i] = (o.seqs[i] && o.seqs[i].length) ? o.seqs[i] : null;
+		cur = Math.max(0, Math.min(NSEQ - 1, Math.round(o.current) || 0));
+	} else {
+		migrate();
+		fresh = true;
+	}
+	seqsLoaded = true;
+	pend = -1;
+	queued = -1;
+	loadSeq(seqs[cur]);
+	writeBuffer();
+	afterSwitch();
+	if (fresh) saveSeqs();
 }
 
 function addlane() {
@@ -1659,11 +1973,36 @@ function ondblclick(x, y, but, cmd, shift, capslock, option, ctrl) {
 ondblclick.local = 1;
 
 // --- pattr -------------------------------------------------
+// presets keep the sequence number and the scale mask (the sequences are in their own file)
 function getvalueof() {
-	return flat();
+	var a = [-5, cur, mask.length];
+	for (var i = 0; i < mask.length; i++) a.push(mask[i]);
+	return a;
 }
 
 function setvalueof() {
-	unflat(arrayfromargs(arguments));
-	changed(false);
+	var a = arrayfromargs(arguments);
+	if (!a.length) return;
+	if (a[0] === -5) {
+		var ml = Math.round(a[2]) || 0;
+		var m = a.slice(3, 3 + ml).map(function (x) { return x ? 1 : 0; });
+		if (ml > 0) {
+			if (m.length === scl.size) { mask = m; pendingMask = null; }
+			else pendingMask = m;
+		}
+		changed(false);
+		seq(a[1]);
+	} else if (seqsLoaded) {
+		// an older preset: only its mask (its notes became a sequence)
+		var ml2 = Math.round(a[4]) || 0;
+		var m2 = a.slice(5, 5 + ml2).map(function (x) { return x ? 1 : 0; });
+		if (ml2 > 0) {
+			if (m2.length === scl.size) { mask = m2; pendingMask = null; }
+			else pendingMask = m2;
+		}
+		changed(false);
+	} else {
+		unflat(a);
+		changed(false);
+	}
 }
