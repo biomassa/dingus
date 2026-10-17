@@ -17,10 +17,15 @@
 //        is 1% of VEL; only with 2+ ratchets), DUTY (only with 2+ ratchets)
 //        click / drag; shift = fine
 // CHANCE lanes (any number, up to 32; '+ CHANCE' strip adds one, the x on a lane label removes it):
-//        one cell per note: op, PROB, PTN (A:B = on the A-th of every B repeats / bars), amount.
-//        click a cell = op menu, double-click = clear it, drag up/down = PROB, alt-drag = amount (in the op's unit:
-//        steps, step number, VEL points, step fractions, ratchets, scale degrees),
-//        shift-click = next PTN, shift-alt-click = previous PTN. lanes act top to bottom.
+//        at least 3 lanes are always there (the x is hidden at 3).
+//        one cell per note: op, PROB, PTN (A:B = on the A-th of every B repeats / bars), amount (in the op's
+//        unit: steps, step number, VEL points, step fractions, ratchets, scale degrees). Lanes act top to bottom.
+//        cells 44 px and wider have zones: op name on top (click = the op menu), PROB bar in the middle,
+//        amount (left) and PTN (right) at the bottom; drag a zone up / down to change it.
+//        a click anywhere else (or anywhere in a narrower cell) opens the cell editor: op grid, PROB slider,
+//        amount and PTN with - / +, clear; changes apply at once; a click outside it or its x closes it.
+//        narrow cells: drag = PROB. Extras: double-click = clear, alt-drag = amount,
+//        shift-click = next PTN, shift-alt-click = previous PTN.
 // RANGE strip (top): play range in whole steps. drag an end / the middle; double-click = full range
 // SEQUENCES: 32, each with its notes, lanes, chance lanes, play range and step count (the scale mask
 //        and the tuning are shared). The shown sequence plays from one engine bank; a newly chosen one
@@ -42,6 +47,7 @@
 //   seqstep d          the sequence d up / down (from a waiting one), 0..31 without wrapping
 //   copyseq / pasteseq copy the current sequence / replace the current sequence with the copy
 //   seqname name       the instance name: reads (or migrates) the sequences file
+//   swing n            the current sequence's swing, 50..75 % (every 2nd step later; 50 = straight)
 //   bankis b           the engine's playing bank (from gen~ out6)
 //   dsp 0|1            audio on / off (off: sequences switch at once)
 //   bang               output the stored list
@@ -58,7 +64,8 @@
 //
 // pattr value: -5 sequence masklen mask... (older presets: the full stored list below; after the
 //   migration only its mask is used)
-// stored list: -4 n rstart rend  masklen mask...  chancelanes  notecount  notes
+// stored list: -6 n rstart rend swing  masklen mask...  chancelanes  notecount  notes
+//   (-4: the same without swing)
 //   note: start length pitch vel glide ratch duty fade, then per chance lane: op prob ptnA ptnB amount
 //
 // note buffer~: frames 0..1023 = step * 16 + slot, 22 channels
@@ -95,7 +102,7 @@ var SLOTS = 16;
 var NCH = 22;
 var TW = 11;         // channels per table
 var NFIELDS = 8;
-var FORMAT = 4;
+var FORMAT = 6;      // stored lists: -6 with swing; -4 and older without (straight)
 var MAXNOTES = 1024; // = MAXSTEPS * SLOTS
 var PTBASE = 1024;   // pitch table start frame
 var PTN_N = 512;     // pitch table size (degree indices 0..511)
@@ -112,10 +119,12 @@ var PREFIX = 'uPG';  // presets file prefix (dingus.presetFile.js); sequences: u
 // --- state -------------------------------------------------
 var n = 5;
 var notes = [];        // {st, len, pitch, v, gl, r, fd, d, ch: [{op, p, pa, pb, amt}, ...]}
-var chN = 0;           // chance lanes
+var MINCH = 3;         // every sequence shows at least 3 chance lanes
+var chN = MINCH;       // chance lanes
 var chBufName = '';
 var menu = null;       // open op menu: {nt, li, x, y}
 var playhead = -1;
+var sw = 50;            // swing of the current sequence, 50..75 % (50 = straight)
 var seqs = [];         // the 32 sequences as stored lists without the mask (null = empty)
 var cur = 0;           // the shown sequence, which plays from bank 'bank'
 var bank = 0;
@@ -143,7 +152,10 @@ var snapQ = 0.25;      // grid in steps (1 / beats per step), 0 = off
 var HEADER = 14;
 var ROLLH = 290;
 var LANEH = 30;
-var CHH = 32;
+var CHH = 48;          // chance lane height
+var CHOP = 16;         // the op band at the top of a cell
+var CHBOT = 15;        // the amount / PTN row at the bottom of a cell
+var ZONEW = 44;        // narrower cells have no zones
 var ADDH = 14;
 var RANGEH = 10;
 var CHCOL = [0.52, 0.60, 0.46];     // sage
@@ -174,9 +186,12 @@ var OPS = [
 	{ n: 'P+', a: [1, 64, 1], u: 'deg' }, { n: 'P-', a: [1, 64, 1], u: 'deg' },
 	{ n: 'P?+', a: [1, 64, 0], u: 'deg' }, { n: 'P?-', a: [1, 64, 0], u: 'deg' }, { n: 'P?', a: [1, 64, 0], u: 'deg' }
 ];
-// op menu columns
-var MENUCOLS = [[0, 1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19, 20]];
-var MENUW = 58, MENUH = 16;
+// op menu: labelled groups
+var MENUCOLS = [[0, 1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11], [12, 13, 14], [15], [16, 17, 18, 19, 20]];
+var MENUHEAD = ['PLAY', 'JUMP', 'VEL', 'LENGTH', 'RATCH', 'PITCH'];
+var MENUW = 72, MENUH = 20, MENUTOP = 16;
+var EDW = 6 * 72 + 8, EDH = 22 + MENUTOP + 5 * 20 + 4 + 4 * 26 + 6;
+var editor = null;     // open cell editor: {nt, li, x, y}
 // PTN choices: [A, B]; [0, 0] = always
 var PTNS = [[0, 0]];
 (function () { for (var b = 2; b <= 8; b++) for (var a = 1; a <= b; a++) PTNS.push([a, b]); })();
@@ -635,6 +650,7 @@ function writeNotes(bk) {
 	buf.poke(2, METABASE + bk, [rStart]);
 	buf.poke(3, METABASE + bk, [rEnd]);
 	buf.poke(4, METABASE + bk, [chN]);
+	buf.poke(5, METABASE + bk, [sw]);
 }
 writeNotes.local = 1;
 
@@ -696,7 +712,7 @@ writeChance.local = 1;
 // noMask: a sequence (mask length 0); the mask belongs to the tuning
 function flat(noMask) {
 	var ml = noMask ? 0 : mask.length;
-	var a = [-FORMAT, n, rStart, rEnd, ml];
+	var a = [-FORMAT, n, rStart, rEnd, sw, ml];
 	var i;
 	for (i = 0; i < ml; i++) a.push(mask[i]);
 	a.push(chN, notes.length);
@@ -713,12 +729,13 @@ function flat(noMask) {
 flat.local = 1;
 
 function unflat(a) {
-	if (a.length < 6 || a[0] > -1 || a[0] < -4) return;
+	if (a.length < 6 || a[0] > -1 || a[0] < -6 || a[0] === -5) return;
 	var ver = -a[0];
 	var i = 1, k;
 	n = Math.max(1, Math.min(MAXSTEPS, Math.round(a[i++])));
 	rStart = Math.round(a[i++]);
 	rEnd = Math.round(a[i++]);
+	sw = ver >= 6 ? Math.max(50, Math.min(75, Math.round(a[i++]))) : 50;
 	clampRange();
 	var ml = Math.round(a[i++]);
 	var m = [];
@@ -727,11 +744,14 @@ function unflat(a) {
 		if (m.length === scl.size) { mask = m; pendingMask = null; }
 		else pendingMask = m;
 	}
+	editor = null;
+	menu = null;
 	chN = 0;
 	if (ver >= 4) chN = Math.max(0, Math.min(MAXCH, Math.round(a[i++]) || 0));
+	var chStored = chN;
 	var nc = Math.round(a[i++]) || 0;
 	notes = [];
-	if (ver === 4) {
+	if (ver >= 4) {
 		for (k = 0; k < nc && i + NFIELDS + chN * CHF - 1 < a.length; k++) {
 			var nt = {
 				st: a[i], len: Math.max(MINLEN, a[i + 1]), pitch: Math.round(a[i + 2]),
@@ -760,6 +780,7 @@ function unflat(a) {
 			});
 		}
 	}
+	chN = Math.max(MINCH, chStored);   // at least 3 lanes; the missing ones are empty
 	for (k = 0; k < notes.length; k++) fitCells(notes[k]);
 	sortNotes();
 	fitToSteps();
@@ -787,6 +808,7 @@ function sendRange() {
 sendRange.local = 1;
 
 function changed(out) {
+	for (var fc = 0; fc < notes.length; fc++) fitCells(notes[fc]);   // every note has a cell per lane
 	sortNotes();
 	clampRange();
 	seqs[cur] = flat(true);
@@ -1028,14 +1050,27 @@ function paint() {
 				g.fill();
 				continue;
 			}
-			bh = Math.max(1, cl.p * (CHH - 4));
-			g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 0.75);
-			g.rectangle(x0, cy + CHH - 2 - bh, nw, bh);
+			var zoned = nw >= ZONEW;
+			var editing = editor && editor.nt === nt && editor.li === i;
+			// PROB bar between the op band and the bottom row (the whole height in narrow cells)
+			var bt = zoned ? cy + CHOP : cy + 2, bb = zoned ? cy + CHH - CHBOT : cy + CHH - 2;
+			bh = Math.max(1, cl.p * (bb - bt));
+			g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], editing ? 0.95 : 0.75);
+			g.rectangle(x0, bb - bh, nw, bh);
 			g.fill();
-			if (nw >= 14) {
-				numLabel(g, x0 + 1, cy + 2, cellText(cl));
-				var sub = Math.round(cl.p * 100) + '%' + (cl.pb ? ' ' + cl.pa + ':' + cl.pb : '');
-				if (nw >= 30) numLabel(g, x0 + 1, cy + 16, sub);
+			if (zoned) {
+				g.set_source_rgba(0.07, 0.07, 0.07, 0.55);
+				g.rectangle(x0, cy + 1, nw, CHOP - 2);
+				g.rectangle(x0, cy + CHH - CHBOT + 1, nw, CHBOT - 2);
+				g.fill();
+				textIn(g, x0 + 3, cy + 12, nw - 6, cellText(cl), 11, [0.96, 0.93, 0.86]);
+				var oa = OPS[cl.op];
+				var amtTxt = oa && oa.a ? String(cellAmountText(cl)) : '';
+				textIn(g, x0 + 3, cy + CHH - 4, nw / 2 - 4, amtTxt, 10, [0.85, 0.80, 0.68]);
+				textIn(g, x0 + nw / 2 + 2, cy + CHH - 4, nw / 2 - 5, cl.pb ? cl.pa + ':' + cl.pb : 'always', 10, [0.85, 0.80, 0.68]);
+				if (nw >= 70) textIn(g, x0 + nw - 34, cy + CHOP + 12, 32, Math.round(cl.p * 100) + '%', 10, [0.96, 0.93, 0.86]);
+			} else if (nw >= 14) {
+				textIn(g, x0 + 2, cy + 12, nw - 3, cellText(cl), 10, [0.96, 0.93, 0.86]);
 			}
 		}
 	}
@@ -1083,9 +1118,11 @@ function paint() {
 		g.set_source_rgba(0.85, 0.83, 0.78, 1);
 		g.move_to(6, ly + 12);
 		g.show_text('CHANCE ' + (i + 1));
-		g.set_source_rgba(0.70, 0.45, 0.38, 1);
-		g.move_to(labelW - 11, ly + 26);
-		g.show_text('x');
+		if (chN > MINCH) {
+			g.set_source_rgba(0.70, 0.45, 0.38, 1);
+			g.move_to(labelW - 11, ly + 26);
+			g.show_text('x');
+		}
 	}
 	g.set_font_size(9);
 	g.set_source_rgba(chN < MAXCH ? 0.75 : 0.35, chN < MAXCH ? 0.80 : 0.35, chN < MAXCH ? 0.68 : 0.35, 1);
@@ -1115,14 +1152,48 @@ function paint() {
 	g.stroke();
 
 	if (menu) paintMenu(g, w, h);
+	if (editor && (notes.indexOf(editor.nt) < 0 || editor.li >= chN)) editor = null;   // its note or lane is gone
+	if (editor) paintEditor(g, w, h);
 }
 paint.local = 1;
 
+// the op grid (menu or inside the editor): 6 labelled columns at (x, y)
+function gridItemAt(gx, gy, x, y) {
+	var c = Math.floor((x - gx - 2) / MENUW), k = Math.floor((y - gy - 2 - MENUTOP) / MENUH);
+	if (c < 0 || c >= MENUCOLS.length || k < 0 || k >= MENUCOLS[c].length) return -1;
+	return MENUCOLS[c][k];
+}
+gridItemAt.local = 1;
+
+function paintGrid(g, gx, gy, cur) {
+	for (var c = 0; c < MENUCOLS.length; c++) {
+		var x = gx + 2 + c * MENUW;
+		g.set_font_size(10);
+		g.set_source_rgba(0.62, 0.60, 0.55, 1);
+		g.move_to(x + 4, gy + 13);
+		g.show_text(MENUHEAD[c]);
+		for (var k = 0; k < MENUCOLS[c].length; k++) {
+			var op = MENUCOLS[c][k];
+			var y = gy + 2 + MENUTOP + k * MENUH;
+			if (op === cur) {
+				g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 0.6);
+				g.rectangle(x, y, MENUW - 3, MENUH - 2);
+				g.fill();
+			}
+			g.set_font_size(12);
+			g.set_source_rgba(0.94, 0.92, 0.86, 1);
+			g.move_to(x + 4, y + 14);
+			g.show_text(op === 0 ? 'none' : OPS[op].n);
+		}
+	}
+}
+paintGrid.local = 1;
+
 function menuRect(w, h) {
-	var mw = MENUCOLS.length * MENUW + 4, mh = 5 * MENUH + 4;
+	var mw = MENUCOLS.length * MENUW + 6, mh = MENUTOP + 5 * MENUH + 6;
 	var mx = Math.max(labelW, Math.min(w - mw, menu.x - mw / 2));
 	var my = menu.y - mh - 4;
-	if (my < 0) my = Math.min(h - mh, menu.y + 8);
+	if (my < 0) my = Math.min(h - mh, menu.y + CHH);
 	return [mx, my, mw, mh];
 }
 menuRect.local = 1;
@@ -1130,40 +1201,202 @@ menuRect.local = 1;
 function menuItemAt(x, y) {
 	var wh = dims();
 	var r = menuRect(wh[0], wh[1]);
-	var c = Math.floor((x - r[0] - 2) / MENUW), k = Math.floor((y - r[1] - 2) / MENUH);
 	if (x < r[0] || y < r[1] || x >= r[0] + r[2] || y >= r[1] + r[3]) return -2;   // outside
-	if (c < 0 || c >= MENUCOLS.length || k < 0 || k >= MENUCOLS[c].length) return -1;
-	return MENUCOLS[c][k];
+	return gridItemAt(r[0], r[1], x, y);
 }
 menuItemAt.local = 1;
 
 function paintMenu(g, w, h) {
 	var r = menuRect(w, h);
-	var cur = menu.nt.ch[menu.li].op;
-	g.set_source_rgba(0.05, 0.05, 0.05, 0.95);
+	g.set_source_rgba(0.05, 0.05, 0.05, 0.96);
 	g.rectangle(r[0], r[1], r[2], r[3]);
 	g.fill();
 	g.set_source_rgba(0.55, 0.55, 0.50, 1);
 	g.set_line_width(1);
 	g.rectangle(r[0] + 0.5, r[1] + 0.5, r[2] - 1, r[3] - 1);
 	g.stroke();
-	g.set_font_size(10);
-	for (var c = 0; c < MENUCOLS.length; c++) {
-		for (var k = 0; k < MENUCOLS[c].length; k++) {
-			var op = MENUCOLS[c][k];
-			var x = r[0] + 2 + c * MENUW, y = r[1] + 2 + k * MENUH;
-			if (op === cur) {
-				g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 0.6);
-				g.rectangle(x, y, MENUW - 2, MENUH - 1);
-				g.fill();
-			}
-			g.set_source_rgba(0.92, 0.90, 0.84, 1);
-			g.move_to(x + 4, y + 12);
-			g.show_text(op === 0 ? 'none' : OPS[op].n);
-		}
-	}
+	paintGrid(g, r[0], r[1], menu.nt.ch[menu.li].op);
 }
 paintMenu.local = 1;
+
+// --- the cell editor ---------------------------------------------
+function edRect(w, h) {
+	var ex = Math.max(labelW, Math.min(w - EDW, editor.x - EDW / 2));
+	var ey = editor.y - EDH - 4;
+	if (ey < 0) ey = Math.max(0, Math.min(h - EDH, editor.y + CHH + 4));
+	return [ex, ey, EDW, EDH];
+}
+edRect.local = 1;
+
+// the editor's parts, in absolute coordinates
+function edLayout(w, h) {
+	var r = edRect(w, h);
+	var x = r[0], y = r[1];
+	var gy = y + 22;
+	var ry = gy + MENUTOP + 5 * MENUH + 8;
+	return {
+		r: r,
+		close: [x + EDW - 22, y + 3, 18, 16],
+		grid: [x, gy],
+		prob: [x + 80, ry, EDW - 150, 18],
+		amtMinus: [x + 80, ry + 26, 22, 18], amtVal: [x + 106, ry + 26, EDW - 202, 18], amtPlus: [x + EDW - 92, ry + 26, 22, 18],
+		ptnMinus: [x + 80, ry + 52, 22, 18], ptnVal: [x + 106, ry + 52, EDW - 202, 18], ptnPlus: [x + EDW - 92, ry + 52, 22, 18],
+		clear: [x + 80, ry + 78, 70, 18],
+		rows: [ry, ry + 26, ry + 52, ry + 78]
+	};
+}
+edLayout.local = 1;
+
+function inR(r, x, y) {
+	return x >= r[0] && y >= r[1] && x < r[0] + r[2] && y < r[1] + r[3];
+}
+inR.local = 1;
+
+function edButton(g, r, txt, on) {
+	g.set_source_rgba(on ? 0.24 : 0.16, on ? 0.23 : 0.15, on ? 0.21 : 0.14, 1);
+	g.rectangle(r[0], r[1], r[2], r[3]);
+	g.fill();
+	textIn(g, r[0] + 5, r[1] + 13, r[2] - 6, txt, 12, on ? [0.94, 0.92, 0.86] : [0.45, 0.43, 0.40]);
+}
+edButton.local = 1;
+
+// a slider with its value written on it
+function edSlider(g, r, f, txt, on) {
+	g.set_source_rgba(0.16, 0.15, 0.14, 1);
+	g.rectangle(r[0], r[1], r[2], r[3]);
+	g.fill();
+	if (on) {
+		g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 0.55);
+		g.rectangle(r[0], r[1], Math.max(2, r[2] * Math.max(0, Math.min(1, f))), r[3]);
+		g.fill();
+	}
+	textIn(g, r[0] + 6, r[1] + 13, r[2] - 8, txt, 12, on ? [0.96, 0.93, 0.86] : [0.45, 0.43, 0.40]);
+}
+edSlider.local = 1;
+
+function paintEditor(g, w, h) {
+	var L = edLayout(w, h), r = L.r;
+	var cl = editor.nt.ch[editor.li];
+	var o = OPS[cl.op];
+	g.set_source_rgba(0.05, 0.05, 0.05, 0.97);
+	g.rectangle(r[0], r[1], r[2], r[3]);
+	g.fill();
+	g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 1);
+	g.set_line_width(1);
+	g.rectangle(r[0] + 0.5, r[1] + 0.5, r[2] - 1, r[3] - 1);
+	g.stroke();
+	var idx = notes.indexOf(editor.nt);
+	textIn(g, r[0] + 8, r[1] + 15, EDW - 40, 'CHANCE ' + (editor.li + 1) + '  ·  note ' + (idx + 1) + ' (step ' + (Math.floor(editor.nt.st + EPS) + 1) + ')', 12, [0.94, 0.92, 0.86]);
+	edButton(g, L.close, 'x', true);
+	paintGrid(g, L.grid[0], L.grid[1], cl.op);
+	var labels = ['PROB', 'AMOUNT', 'PTN', ''];
+	for (var i = 0; i < 3; i++) textIn(g, r[0] + 10, L.rows[i] + 13, 66, labels[i], 11, [0.62, 0.60, 0.55]);
+	// PROB slider
+	var pr = L.prob;
+	g.set_source_rgba(0.12, 0.12, 0.12, 1);
+	g.rectangle(pr[0], pr[1], pr[2], pr[3]);
+	g.fill();
+	g.set_source_rgba(CHCOL[0], CHCOL[1], CHCOL[2], 0.9);
+	g.rectangle(pr[0], pr[1], pr[2] * cl.p, pr[3]);
+	g.fill();
+	textIn(g, pr[0] + pr[2] + 8, pr[1] + 13, 60, Math.round(cl.p * 100) + ' %', 12, [0.94, 0.92, 0.86]);
+	var hasA = !!(o && o.a);
+	edButton(g, L.amtMinus, '-', hasA);
+	edSlider(g, L.amtVal, hasA ? (opAmount(cl) - o.a[0]) / Math.max(1, amtMax(o) - o.a[0]) : 0, hasA ? cellAmountText(cl) : 'no amount', hasA);
+	edButton(g, L.amtPlus, '+', hasA);
+	edButton(g, L.ptnMinus, '-', true);
+	edSlider(g, L.ptnVal, ptnIndex(cl) / (PTNS.length - 1), cl.pb ? cl.pa + ' of every ' + cl.pb : 'always', true);
+	edButton(g, L.ptnPlus, '+', true);
+	edButton(g, L.clear, 'clear', true);
+}
+paintEditor.local = 1;
+
+function ptnIndex(c) {
+	for (var q = 0; q < PTNS.length; q++) if (PTNS[q][0] === c.pa && PTNS[q][1] === c.pb) return q;
+	return 0;
+}
+ptnIndex.local = 1;
+
+function setOp(cl, it) {
+	if (cl.op === it) return;
+	cl.op = it;
+	cl.amt = OPS[it].a ? OPS[it].a[2] : 0;   // default amount of the new op
+	if (it && cl.p <= 0) cl.p = 0.5;
+}
+setOp.local = 1;
+
+function stepAmount(cl, d) {
+	var o = OPS[cl.op];
+	if (!o || !o.a) return false;
+	var na = Math.max(o.a[0], Math.min(amtMax(o), opAmount(cl) + d));
+	if (na === cl.amt) return false;
+	cl.amt = na;
+	return true;
+}
+stepAmount.local = 1;
+
+function stepPtn(cl, d) {
+	var pi = (ptnIndex(cl) + d + PTNS.length) % PTNS.length;
+	cl.pa = PTNS[pi][0];
+	cl.pb = PTNS[pi][1];
+}
+stepPtn.local = 1;
+
+// a slider position 0..1 into the amount (in the op's range) or the PTN choice
+function edSet(mode, cl, f) {
+	f = Math.max(0, Math.min(1, f));
+	if (mode === 'edamt') {
+		var o = OPS[cl.op];
+		if (!o || !o.a) return;
+		var na = Math.round(o.a[0] + f * (amtMax(o) - o.a[0]));
+		if (na !== opAmount(cl) || na !== cl.amt) { cl.amt = na; changed(false); }
+	} else {
+		var qi = Math.round(f * (PTNS.length - 1));
+		if (PTNS[qi][0] !== cl.pa || PTNS[qi][1] !== cl.pb) { cl.pa = PTNS[qi][0]; cl.pb = PTNS[qi][1]; changed(false); }
+	}
+}
+edSet.local = 1;
+
+// a click while the editor is open: true when it was used (or closed the editor)
+var lastEdClick = { x: -1, y: -1, t: 0 };
+
+function editorClick(x, y) {
+	lastEdClick = { x: x, y: y, t: Date.now() };
+	var wh = dims();
+	var L = edLayout(wh[0], wh[1]);
+	var cl = editor.nt.ch[editor.li];
+	if (!inR(L.r, x, y) || inR(L.close, x, y)) {
+		editor = null;
+		mgraphics.redraw();
+		return true;
+	}
+	var it = gridItemAt(L.grid[0], L.grid[1], x, y);
+	if (it >= 0 && y < L.rows[0] - 4) { setOp(cl, it); changed(true); return true; }
+	if (inR([L.prob[0], L.prob[1], L.prob[2], L.prob[3]], x, y)) {
+		cl.p = Math.max(0, Math.min(1, (x - L.prob[0]) / L.prob[2]));
+		drag = { mode: 'edprob', cl: cl, x0: L.prob[0], w: L.prob[2] };
+		changed(false);
+		return true;
+	}
+	if (inR(L.amtVal, x, y)) {
+		if (!OPS[cl.op] || !OPS[cl.op].a) return true;
+		drag = { mode: 'edamt', cl: cl, x0: L.amtVal[0], w: L.amtVal[2] };
+		edSet('edamt', cl, (x - L.amtVal[0]) / L.amtVal[2]);
+		return true;
+	}
+	if (inR(L.ptnVal, x, y)) {
+		drag = { mode: 'edptn', cl: cl, x0: L.ptnVal[0], w: L.ptnVal[2] };
+		edSet('edptn', cl, (x - L.ptnVal[0]) / L.ptnVal[2]);
+		return true;
+	}
+	if (inR(L.amtMinus, x, y)) { if (stepAmount(cl, -1)) changed(true); return true; }
+	if (inR(L.amtPlus, x, y)) { if (stepAmount(cl, 1)) changed(true); return true; }
+	if (inR(L.ptnMinus, x, y)) { stepPtn(cl, -1); changed(true); return true; }
+	if (inR(L.ptnPlus, x, y)) { stepPtn(cl, 1); changed(true); return true; }
+	if (inR(L.clear, x, y)) { editor.nt.ch[editor.li] = newCell(); changed(true); return true; }
+	return true;   // inside the editor: nothing under the click
+}
+editorClick.local = 1;
 
 // glide ribbon: centre line eases from y0 to y1 over width gw, thickness nh
 function easeY(y0, y1, t) {
@@ -1231,6 +1464,33 @@ function paintRowLabels(g, rws, top, bot) {
 	}
 }
 paintRowLabels.local = 1;
+
+// text at (x, y) cut to width w (with a trailing dot when cut)
+function textIn(g, x, y, w, txt, size, col) {
+	if (!txt || w < 6) return;
+	g.set_font_size(size);
+	var t = String(txt);
+	while (t.length > 1 && g.text_measure(t)[0] > w) t = t.slice(0, -1);
+	if (t !== String(txt) && t.length > 1) t = t.slice(0, -1) + '.';
+	g.set_source_rgba(col[0], col[1], col[2], 1);
+	g.move_to(x, y);
+	g.show_text(t);
+}
+textIn.local = 1;
+
+// the amount alone, in the op's unit
+function cellAmountText(c) {
+	var o = OPS[c.op];
+	if (!o || !o.a) return '';
+	var a = opAmount(c);
+	if (o.u === 'gate') return GATENAMES[a] + ' st';
+	if (o.u === 'st') return a + ' st';
+	if (o.u === 'to') return 'to ' + a;
+	if (o.u === 'x') return 'x' + a;
+	if (o.u === 'deg') return a + ' deg';
+	return a + ' ' + o.u;
+}
+cellAmountText.local = 1;
 
 function numLabel(g, x, y, txt) {
 	g.set_font_size(10);
@@ -1334,10 +1594,11 @@ function clearall() {
 
 function emptyState() {
 	notes = [];
-	chN = 0;
+	chN = MINCH;
 	rStart = 0;
 	rEnd = n - 1;
 	menu = null;
+	editor = null;
 }
 emptyState.local = 1;
 
@@ -1433,12 +1694,18 @@ function afterSwitch() {
 	sendRange();
 	outlet(0, 'lanes', chN);
 	outlet(0, 'stepsis', n);
+	outlet(0, 'swingis', sw);
 	outlet(0, 'seqis', cur + 1);
 	mgraphics.redraw();
 	notifyclients();
 	scheduleSave();
 }
 afterSwitch.local = 1;
+
+function swing(v) {
+	sw = Math.max(50, Math.min(75, Math.round(v) || 50));
+	changed(true);
+}
 
 function copyseq() {
 	clip = flat(true);
@@ -1568,11 +1835,13 @@ function addlane() {
 }
 
 function removelane(i) {
+	if (chN <= MINCH) return;   // at least 3 lanes stay
 	i = Math.round(i);
 	if (i < 0 || i >= chN) return;
 	for (var k = 0; k < notes.length; k++) notes[k].ch.splice(i, 1);
 	chN--;
 	menu = null;
+	editor = null;
 	changed(true);
 }
 
@@ -1739,15 +2008,11 @@ onidleout.local = 1;
 function onclick(x, y, but, cmd, shift, capslock, option, ctrl) {
 	drag = null;
 	var h = dims()[1];
+	if (editor && editorClick(x, y)) return;
 	if (menu) {
 		var it = menuItemAt(x, y);
 		if (it >= 0) {
-			var cl = menu.nt.ch[menu.li];
-			if (cl.op !== it) {
-				cl.op = it;
-				cl.amt = OPS[it].a ? OPS[it].a[2] : 0;   // default amount of the new op
-				if (it && cl.p <= 0) cl.p = 0.5;
-			}
+			setOp(menu.nt.ch[menu.li], it);
 			menu = null;
 			changed(true);
 			return;
@@ -1785,7 +2050,16 @@ function onclick(x, y, but, cmd, shift, capslock, option, ctrl) {
 			changed(true);
 			return;
 		}
-		drag = { mode: 'cell', nt: cn, li: li, x0: x, y0: y, p0: cc.p, a0: opAmount(cc), amtMode: !!option, moved: false };
+		// the zone under the click (cells 44 px and wider): op / prob / amt / ptn
+		var cx0 = xOf(cn.st) + 1, cw0 = Math.max(2, cn.len * colW() - 2);
+		var cy0 = chTop() + li * CHH;
+		var zone = 'prob';
+		if (cw0 >= ZONEW) {
+			if (y < cy0 + CHOP) zone = 'op';
+			else if (y >= cy0 + CHH - CHBOT) zone = (x < cx0 + cw0 / 2) ? 'amt' : 'ptn';
+		}
+		if (option) zone = 'amt';
+		drag = { mode: 'cell', nt: cn, li: li, x0: x, y0: y, p0: cc.p, a0: opAmount(cc), q0: ptnIndex(cc), zone: zone, wide: cw0 >= ZONEW, moved: false };
 		return;
 	}
 	if (y < RANGEH) {
@@ -1836,12 +2110,23 @@ function ondrag(x, y, but, cmd, shift, capslock, option, ctrl) {
 	if (!drag) return;
 	if (but === 0) {
 		if (drag.mode === 'cell' && !drag.moved) {
-			// click without a drag: op menu
-			menu = { nt: drag.nt, li: drag.li, x: x, y: chTop() + drag.li * CHH };
+			// click without a drag: the op menu on the op band, else the cell editor
+			var cy1 = chTop() + drag.li * CHH;
+			if (drag.wide && drag.zone === 'op') menu = { nt: drag.nt, li: drag.li, x: x, y: cy1 };
+			else editor = { nt: drag.nt, li: drag.li, x: x, y: cy1 };
 		}
 		scrollTask.cancel();
 		drag = null;
 		changed(true);
+		return;
+	}
+	if (drag.mode === 'edamt' || drag.mode === 'edptn') {
+		edSet(drag.mode, drag.cl, (x - drag.x0) / drag.w);
+		return;
+	}
+	if (drag.mode === 'edprob') {
+		var npv = Math.max(0, Math.min(1, (x - drag.x0) / drag.w));
+		if (npv !== drag.cl.p) { drag.cl.p = npv; changed(false); }
 		return;
 	}
 	if (drag.mode === 'cell') {
@@ -1849,12 +2134,15 @@ function ondrag(x, y, but, cmd, shift, capslock, option, ctrl) {
 		if (!drag.moved && Math.abs(dy) < 3) return;
 		drag.moved = true;
 		var ce = drag.nt.ch[drag.li];
-		if (drag.amtMode) {
+		if (drag.zone === 'amt') {
 			var od = OPS[ce.op];
 			if (!od || !od.a) return;
 			var na = Math.round(drag.a0 + dy / 6);
 			na = Math.max(od.a[0], Math.min(amtMax(od), na));
 			if (na !== ce.amt) { ce.amt = na; changed(false); }
+		} else if (drag.zone === 'ptn') {
+			var qi = Math.max(0, Math.min(PTNS.length - 1, drag.q0 + Math.round(dy / 10)));
+			if (PTNS[qi][0] !== ce.pa || PTNS[qi][1] !== ce.pb) { ce.pa = PTNS[qi][0]; ce.pb = PTNS[qi][1]; changed(false); }
 		} else {
 			var np = Math.max(0, Math.min(1, drag.p0 + dy / 100));
 			if (np !== ce.p) { ce.p = np; changed(false); }
@@ -1945,7 +2233,22 @@ moveDrag.local = 1;
 
 function ondblclick(x, y, but, cmd, shift, capslock, option, ctrl) {
 	drag = null;
+	if (editor) {
+		// quick clicks on the editor's buttons arrive as a double-click: one more click there
+		var wh = dims();
+		if (inR(edLayout(wh[0], wh[1]).r, x, y)) {
+			// unless onclick already took this same click
+			if (!(lastEdClick.x === x && lastEdClick.y === y && Date.now() - lastEdClick.t < 40)) editorClick(x, y);
+			drag = null;
+			return;
+		}
+	}
+	if (menu) {
+		var wm = dims();
+		if (inR(menuRect(wm[0], wm[1]), x, y)) return;
+	}
 	menu = null;
+	editor = null;
 	if (x < labelW) return;
 	var li = chAt(y);
 	if (li >= 0) {

@@ -94,7 +94,7 @@ const seqList = (steps, notes) => [-4, steps, 0, steps - 1, 0, 0, notes.length, 
 	assert.equal(f.seqs[0][1], 4);
 	assert.equal(f.seqs[2][1], 6);
 	assert.equal(f.seqs[1][1], 7, "slot 40 goes to the first empty sequence");
-	assert.equal(f.seqs[0][4], 0, "no mask in a sequence");
+	assert.equal(f.seqs[0][5], 0, "no mask in a sequence (after the swing)");
 	assert.equal(t.run("notes.length"), 1, "sequence 1 shown");
 }
 
@@ -174,7 +174,7 @@ t.run("notes = [{st: 0, len: 1, pitch: 40, v: 1, gl: 0, r: 1, d: 0.5, fd: 0, ch:
 t.ctx.clear();
 assert.equal(t.run("notes.length"), 0);
 t.ctx.clearall();
-assert.ok(t.run("seqs.every(function (s, i) { return i === cur ? s[6] === 0 : s === null; })"));
+assert.ok(t.run("seqs.every(function (s, i) { return i === cur ? (s[6] === 3 && s[7] === 0) : s === null; })"), "cleared: 3 empty lanes, no notes");
 
 // --- presets: the sequence number and the mask; an old preset only gives its mask ---
 t = load();
@@ -195,16 +195,47 @@ assert.deepEqual(plain(t.run("mask")), [1, 1, 0]);
 t = load();
 t.ctx.seqname("w");
 t.ctx.dsp(1);
-const lanes2 = [-4, 4, 0, 3, 0, 2, 1, 0, 1, 40, 0.8, 0, 1, 0.5, 0, 1, 0.5, 1, 1, 0, 2, 0.5, 1, 1, 0];
-t.run("seqs[1] = " + JSON.stringify(lanes2));
+// sequence 2 with 5 lanes (2 more than the minimum of 3)
+t.run("chN = 5; seqs[1] = flat(true); chN = 3; changed(false);");
 const h0 = t.ctx.box.attrs.presentation_rect[3];
 t.ctx.seq(1);
 assert.equal(t.ctx.box.attrs.presentation_rect[3], h0, "unchanged while sequence 2 waits");
 t.ctx.bankis(1);
-assert.equal(t.run("chN"), 2);
+assert.equal(t.run("chN"), 5);
 assert.equal(t.ctx.box.attrs.presentation_rect[3], h0 + 2 * t.run("CHH"), "taller by two chance lanes");
 t.ctx.seq(0);
 t.ctx.bankis(0);
 assert.equal(t.ctx.box.attrs.presentation_rect[3], h0, "back");
+
+// --- swing: per sequence, in the bank meta; older lists play straight ---
+t = load();
+t.ctx.seqname("s");
+t.ctx.swing(70);
+assert.equal(t.peek("pg", 5, 4096), 70, "bank 0 meta: swing");
+t.run("seqs[1] = " + JSON.stringify(seqList(4, [0])));
+t.ctx.dsp(0);
+t.out.length = 0;
+t.ctx.seq(1);
+assert.equal(t.run("sw"), 50, "an older (-4) list is straight");
+assert.deepEqual(plain(t.msgs("swingis")).at(-1), ["swingis", 50]);
+t.ctx.seq(0);
+assert.equal(t.run("sw"), 70);
+assert.equal(plain(t.run("flat(true)"))[0], -6);
+
+// --- at least 3 chance lanes: older lists get empty lanes; x does nothing at 3 ---
+t = load();
+t.ctx.seqname("m");
+assert.equal(t.run("chN"), 3, "a fresh roll has 3 lanes");
+t.run("seqs[1] = " + JSON.stringify(seqList(4, [0, 1])));
+t.ctx.dsp(0);
+t.ctx.seq(1);
+assert.equal(t.run("chN"), 3, "a list without lanes loads with 3");
+assert.ok(t.run("notes.every(function (nt) { return nt.ch.length === 3 && nt.ch[2].op === 0; })"), "the new lanes are empty");
+t.ctx.removelane(0);
+assert.equal(t.run("chN"), 3, "x does nothing at 3");
+t.ctx.addlane();
+assert.equal(t.run("chN"), 4);
+t.ctx.removelane(3);
+assert.equal(t.run("chN"), 3);
 
 console.log("pgroll.sequences: all tests passed");

@@ -16,7 +16,7 @@ function load(files = new Map()) {
 	const buffers = new Map();
 	class Buffer {
 		constructor(name) {
-			if (!buffers.has(name)) buffers.set(name, { frames: 256, chans: 9, data: new Map() });
+			if (!buffers.has(name)) buffers.set(name, { frames: 256, chans: 10, data: new Map() });
 			this.b = buffers.get(name);
 		}
 		framecount() { return this.b.frames; }
@@ -89,7 +89,7 @@ const seqList = (steps, starts) => [-3, steps, 0, steps - 1, ...Array(steps).fil
 	t.ctx.seqname("bass");
 	const f = JSON.parse(files.get(FOLDER + "uGATEseq_bass.json"));
 	assert.equal(f.seqs[0][1], 4);
-	assert.equal(f.seqs[1][0], -3, "the old format is converted");
+	assert.equal(f.seqs[1][0], -6, "the old format is converted");
 	assert.equal(f.seqs[1][1], 4);
 	assert.equal(f.seqs[2][1], 7, "slot 40 goes to the first empty sequence");
 }
@@ -162,5 +162,40 @@ assert.equal(t.run("cur"), 2);
 t.run("gates = [{s: 0, span: 1, f: 1, p: 1, r: 1, v: 1, d: 0.5, dl: 0}]");
 t.ctx.setvalueof(...seqList(4, []));
 assert.equal(t.run("gates.length"), 1, "an old preset doesn't replace the gates");
+
+// --- FADE: stored per gate, written to channel 10, older formats load with 0 ---
+t = load();
+t.ctx.steps(4);
+t.ctx.seqname("f");
+t.ctx.setvalueof(-3, 4, 0, 3, 1, 1, 1, 1, 0, 2, 1, 1, 3, 0.8, 0.5, 0);
+t.run("seqs[1] = [-4, 4, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 4, 0.9, 0.5, 0, -30]");
+t.ctx.dsp(0);
+t.ctx.seq(1);
+assert.equal(t.run("gates[0].fd"), -30);
+assert.equal(t.peek("gates", 10, 64 + 1), -30, "bank 1: the fade of the gate on step 2");
+t.ctx.seq(0);
+assert.equal(t.run("gates.length ? gates[0].fd : 0"), 0);
+assert.equal(plain(t.run("flat()")).length, 5 + 4 + (t.run("gates.length")) * 9, "header with swing, 9 fields per gate");
+assert.ok(Math.abs(t.run("fadeFactor({ r: 4, fd: 50 }, 3)") - 0.01) < 1e-9, "at +50 the last hit is 1%");
+assert.ok(Math.abs(t.run("fadeFactor({ r: 4, fd: -50 }, 0)") - 0.01) < 1e-9, "at -50 the first hit is 1%");
+assert.equal(t.run("fadeFactor({ r: 1, fd: 50 }, 0)"), 1, "no fade without ratchets");
+
+// --- swing: per sequence, in the bank meta; older lists play straight ---
+t = load();
+t.ctx.seqname("s");
+t.ctx.swing(66);
+assert.equal(t.peek("gates", 4, 128), 66, "bank 0 meta: swing");
+assert.equal(plain(t.run("flat()"))[4], 66);
+t.run("seqs[1] = [-4, 4, 0, 3, 1, 1, 1, 1]");
+t.ctx.dsp(0);
+t.out.length = 0;
+t.ctx.seq(1);
+assert.equal(t.run("sw"), 50, "an older list is straight");
+assert.equal(t.peek("gates", 4, 129), 50);
+assert.deepEqual(plain(t.msgs("swingis")).at(-1), ["swingis", 50]);
+t.ctx.seq(0);
+assert.equal(t.run("sw"), 66, "sequence 1 kept its swing");
+t.ctx.swing(90);
+assert.equal(t.run("sw"), 75, "at most 75");
 
 console.log("gateroll.sequences: all tests passed");

@@ -34,7 +34,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						383.0,
-						526.0,
+						570.0,
 						316.0,
 						20.0
 					],
@@ -692,7 +692,7 @@
 						140.0,
 						22.0
 					],
-					"text": "buffer~ #0-gates @samps 256 @chans 9"
+					"text": "buffer~ #0-gates @samps 256 @chans 10"
 				}
 			},
 			{
@@ -872,7 +872,7 @@
 							},
 							{
 								"box": {
-									"code": "// dingusGate engine: steps from the phasor, gates from the gate table buffer\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// out1 gate or trigger (level = velocity)  out2 velocity (held)  out3 current step\n// out4 envelope gate (every ratchet, or whole gate)  out5 the bank that plays (0 / 1)\n// two banks of gate tables, one per sequence: bank b at frames b * 64 .. b * 64 + 63; its meta at\n//   frame 128 + b: ch 0 steps, ch 1 range start, ch 2 range end. pendbank = the bank of a waiting\n//   sequence (-1 none): it takes over at the phasor wrap, at once when the clock stands still (0.1 s)\n//   or play is off, or when swapnow changes. The new sequence starts at its first step.\nBuffer gb(\"dingus-gate-none\");\nParam steps(16, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\nParam pendbank(-1, min=-1, max=1);\nParam swapnow(0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory pend(0);\nHistory pidx(0);\nHistory poff(0);\nHistory pcut(64);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\n\n// bank swap, before anything reads the tables of this sample\nwrapped = (in1 - pph) < -0.5;\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pendbank >= 0 && pendbank != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pendbank;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 64;\nmb = 128 + bk;\nmsteps = max(peek(gb, mb, 0), 1);\n\nn = clamp(floor(msteps + in3 * msteps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\ns1 = 0;\nl = 0;\np = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\ng = 0;\ni = 0;\nlo = 0;\nhi = 0;\nok = 0;\nhit = 0;\nlraw = 0;\neg = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running gate (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip\nlo = clamp(peek(gb, mb, 1), 0, n - 1);\nhi = clamp(peek(gb, mb, 2), lo, n - 1);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t}\n\t// skip: jump over steps whose skip roll fails (channel 8 = chance the step plays)\n\tfor (i = 0; i < n; i += 1) {\n\t\tif (noise() * 0.5 + 0.5 < peek(gb, nb + nxt, 7)) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tpend = 0;\n\tif (ok == 0) {\n\t\t// every step skipped: nothing plays\n\t} else if (d == 1) {\n\t\t// reverse: the gate whose played end falls in this step, mirrored\n\t\ts1 = peek(gb, nb + nxt, 5);\n\t\tif (s1 > 0) {\n\t\t\tpidx = nb + s1 - 1;\n\t\t\tpoff = peek(gb, nb + nxt, 6);\n\t\t\tpcut = 64;\n\t\t\tpend = 1;\n\t\t}\n\t} else {\n\t\t// forward / random: the gate starting here, after its delay (channel 9)\n\t\tl = peek(gb, nb + nxt, 0);\n\t\tif (l > 0) {\n\t\t\tpidx = nb + nxt;\n\t\t\tpoff = peek(gb, nb + nxt, 8);\n\t\t\tpcut = (d == 0) ? hi + 1 - nxt - poff : 64;\n\t\t\tpend = 1;\n\t\t}\n\t}\n}\n\n// pending gate: starts part-way into the step (delay forward, mirrored offset in reverse)\nif (pend > 0 && running && sub >= poff) {\n\tpend = 0;\n\tfire = 1;\n\tfidx = pidx;\n\tflen = min(peek(gb, pidx, 0), pcut);\n}\n\n// probability is rolled once, when the gate starts\nif (fire > 0 && flen > 0) {\n\tp = peek(gb, fidx, 1);\n\tif (noise() * 0.5 + 0.5 < p) {\n\t\tif (lastout > 0 && trig == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = flen;\n\t\tgrat = max(peek(gb, fidx, 2), 1);\n\t\tgvel = peek(gb, fidx, 3);\n\t\tgduty = peek(gb, fidx, 4);\n\t\tlraw = peek(gb, fidx, 0);\n\t\tgfill = lraw - ceil(lraw) + 1;\n\t\thitprev = -1;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per gate / ratchet hit, 1..10 ms\n\t// pulse length from LEN (fill 0.05..1), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = gvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole gate evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = gvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = gvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new gate follows a high one, so it retriggers\n// envelope gate: every ratchet hit, or the whole gate (first hit only)\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = gvel;\nout3 = cur;\nout4 = eg;\nout5 = bk;\n",
+									"code": "// dingusGate engine: steps from the phasor, gates from the gate table buffer\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// out1 gate or trigger (level = velocity of the current hit)  out2 velocity of the current hit (held)\n// out3 current step\n// out4 envelope gate (every ratchet, or whole gate)  out5 the bank that plays (0 / 1)\n// two banks of gate tables, one per sequence: bank b at frames b * 64 .. b * 64 + 63; its meta at\n//   frame 128 + b: ch 0 steps, ch 1 range start, ch 2 range end, ch 3 swing (50..75; 0 = straight). pendbank = the bank of a waiting\n//   sequence (-1 none): it takes over at the phasor wrap, at once when the clock stands still (0.1 s)\n//   or play is off, or when swapnow changes. The new sequence starts at its first step.\nBuffer gb(\"dingus-gate-none\");\nParam steps(16, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\nParam pendbank(-1, min=-1, max=1);\nParam swapnow(0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory pend(0);\nHistory pidx(0);\nHistory poff(0);\nHistory pcut(64);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory gfade(0);\nHistory hvel(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\n\n// bank swap, before anything reads the tables of this sample\nwrapped = (in1 - pph) < -0.5;\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pendbank >= 0 && pendbank != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pendbank;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 64;\nmb = 128 + bk;\nmsteps = max(peek(gb, mb, 0), 1);\nmsw = clamp(peek(gb, mb, 3), 50, 75) / 100;\n\nn = clamp(floor(msteps + in3 * msteps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\ns1 = 0;\nl = 0;\np = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\ng = 0;\ni = 0;\nlo = 0;\nhi = 0;\nok = 0;\nhit = 0;\nlraw = 0;\neg = 0;\nhn = 0;\nfm = 0;\nfa = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\n// swing: in each pair of steps the first takes msw of the pair's time (0.5 = straight, 0.75 = dotted);\n// an unpaired last step plays straight. Everything timed in steps follows the warped position.\npos0 = in1 * n;\npos = pos0;\npp = floor(pos0 / 2);\npu = pos0 - pp * 2;\nif (pp * 2 + 1 < n) {\n\tpos = pp * 2 + ((pu < 2 * msw) ? pu / (2 * msw) : 1 + (pu - 2 * msw) / (2 - 2 * msw));\n}\n\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running gate (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip\nlo = clamp(peek(gb, mb, 1), 0, n - 1);\nhi = clamp(peek(gb, mb, 2), lo, n - 1);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t}\n\t// skip: jump over steps whose skip roll fails (channel 8 = chance the step plays)\n\tfor (i = 0; i < n; i += 1) {\n\t\tif (noise() * 0.5 + 0.5 < peek(gb, nb + nxt, 7)) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tpend = 0;\n\tif (ok == 0) {\n\t\t// every step skipped: nothing plays\n\t} else if (d == 1) {\n\t\t// reverse: the gate whose played end falls in this step, mirrored\n\t\ts1 = peek(gb, nb + nxt, 5);\n\t\tif (s1 > 0) {\n\t\t\tpidx = nb + s1 - 1;\n\t\t\tpoff = peek(gb, nb + nxt, 6);\n\t\t\tpcut = 64;\n\t\t\tpend = 1;\n\t\t}\n\t} else {\n\t\t// forward / random: the gate starting here, after its delay (channel 9)\n\t\tl = peek(gb, nb + nxt, 0);\n\t\tif (l > 0) {\n\t\t\tpidx = nb + nxt;\n\t\t\tpoff = peek(gb, nb + nxt, 8);\n\t\t\tpcut = (d == 0) ? hi + 1 - nxt - poff : 64;\n\t\t\tpend = 1;\n\t\t}\n\t}\n}\n\n// pending gate: starts part-way into the step (delay forward, mirrored offset in reverse)\nif (pend > 0 && running && sub >= poff) {\n\tpend = 0;\n\tfire = 1;\n\tfidx = pidx;\n\tflen = min(peek(gb, pidx, 0), pcut);\n}\n\n// probability is rolled once, when the gate starts\nif (fire > 0 && flen > 0) {\n\tp = peek(gb, fidx, 1);\n\tif (noise() * 0.5 + 0.5 < p) {\n\t\tif (lastout > 0 && trig == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = flen;\n\t\tgrat = max(peek(gb, fidx, 2), 1);\n\t\tgvel = peek(gb, fidx, 3);\n\t\tgduty = peek(gb, fidx, 4);\n\t\tgfade = peek(gb, fidx, 9);\n\t\tlraw = peek(gb, fidx, 0);\n\t\tgfill = lraw - ceil(lraw) + 1;\n\t\thitprev = -1;\n\t}\n}\n\n// FADE: velocity per ratchet hit, exponential; < 0 rises to VEL, > 0 falls from VEL;\n// at +-50 the quietest hit is 1% of VEL (only with 2+ ratchets)\nif (act > 0) {\n\thvel = gvel;\n\tif (grat > 1 && gfade != 0) {\n\t\thn = min(floor(el / glen * grat), grat - 1) / (grat - 1);\n\t\tfm = pow(0.01, abs(gfade) / 50);\n\t\tfa = (gfade < 0) ? pow(fm, 1 - hn) : pow(fm, hn);\n\t\thvel = gvel * fa;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per gate / ratchet hit, 1..10 ms\n\t// pulse length from LEN (fill 0.05..1), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = hvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole gate evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = hvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = hvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new gate follows a high one, so it retriggers\n// envelope gate: every ratchet hit, or the whole gate (first hit only)\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = hvel;\nout3 = cur;\nout4 = eg;\nout5 = bk;\n",
 									"fontface": 0,
 									"fontname": "<Monospaced>",
 									"fontsize": 12.0,
@@ -1152,7 +1152,7 @@
 						183.0,
 						2.0,
 						764.0,
-						380.0
+						424.0
 					],
 					"textfile": {
 						"filename": "dingus.gateRoll.js",
@@ -1201,7 +1201,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						630.0,
-						390.0,
+						434.0,
 						313.0,
 						55.0
 					],
@@ -1295,7 +1295,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						183.0,
-						390.0,
+						434.0,
 						440.0,
 						115.0
 					],
@@ -1332,7 +1332,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						183.0,
-						510.0,
+						554.0,
 						440.0,
 						10.0
 					],
@@ -1386,7 +1386,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						183.0,
-						525.0,
+						569.0,
 						40.0,
 						22.0
 					],
@@ -1471,7 +1471,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						240.0,
-						526.0,
+						570.0,
 						20.0,
 						20.0
 					],
@@ -1493,7 +1493,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						264.0,
-						526.0,
+						570.0,
 						100.0,
 						20.0
 					],
@@ -1554,7 +1554,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						630.0,
-						450.0,
+						494.0,
 						313.0,
 						70.0
 					],
@@ -2351,7 +2351,7 @@
 				"box": {
 					"id": "sq_rt",
 					"maxclass": "newobj",
-					"text": "route engine stepsis seqis",
+					"text": "route engine stepsis seqis swingis",
 					"patching_rect": [
 						830.0,
 						1040.0,
@@ -2359,8 +2359,9 @@
 						22.0
 					],
 					"numinlets": 1,
-					"numoutlets": 4,
+					"numoutlets": 5,
 					"outlettype": [
+						"",
 						"",
 						"",
 						"",
@@ -2807,6 +2808,93 @@
 						30.0,
 						30.0,
 						30.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sw_box",
+					"maxclass": "number",
+					"maximum": 75,
+					"minimum": 50,
+					"numinlets": 1,
+					"numoutlets": 2,
+					"outlettype": [
+						"",
+						"bang"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						1350.0,
+						1040.0,
+						50.0,
+						22.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						50.0,
+						258.0,
+						40.0,
+						22.0
+					],
+					"varname": "gatesSeq_swing"
+				}
+			},
+			{
+				"box": {
+					"id": "sw_cmt",
+					"maxclass": "comment",
+					"text": "swing",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						1410.0,
+						1040.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						4.0,
+						260.0,
+						45.0,
+						20.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sw_pp",
+					"maxclass": "newobj",
+					"text": "prepend swing",
+					"patching_rect": [
+						1350.0,
+						1070.0,
+						90.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sw_set",
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"patching_rect": [
+						1450.0,
+						1070.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
 					]
 				}
 			}
@@ -4031,6 +4119,66 @@
 					],
 					"destination": [
 						"number",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sw_box",
+						0
+					],
+					"destination": [
+						"sw_pp",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sw_pp",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_rt",
+						3
+					],
+					"destination": [
+						"sw_set",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sw_set",
+						0
+					],
+					"destination": [
+						"sw_box",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"autopattr",
+						1
+					],
+					"destination": [
+						"sw_box",
 						0
 					]
 				}

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-18
+
+### Added
+
+- `dingus.gatesSeq`: a FADE lane for ratchets, as in `dingus.pitchGateSeq`. The value is -50 to 50 per gate. Below 0 the ratchet hits rise to VEL; above 0 they fall from VEL. The change is exponential. At +-50 the quietest hit is 1 % of VEL. FADE has an effect only with 2 or more ratchets. The GATE lane shows the hits at their faded heights.
+- `dingus.gatesSeq` and `dingus.pitchGateSeq`: swing, 50 to 75 % (50 = straight, 66 = triplet feel, 75 = dotted). Every 2nd step comes later; each pair of steps keeps its length. Notes, gates, ratchets and delays follow the swing. An unpaired last step plays straight. Each sequence has its own swing, set in the `swing` box; it changes with the sequence at the phasor wrap.
+- `dingus.pitchGateSeq`: a cell editor for the chance lanes. Click a cell (not on its op name) to open it. It has the op grid, sliders for PROB, amount and PTN, - and + buttons for single steps, and a clear button. Changes apply at once. A click outside the editor, or its x, closes it.
+
+### Changed
+
+- `dingus.gatesSeq`: the roll is one lane taller (424 px); the controls under it moved down. The stored gate list has a fade field (format -4; older lists load with fade 0). The buffer has 10 channels. The velocity outlet sends the velocity of the current ratchet hit.
+- `dingus.pitchGateSeq`: the chance lanes are 48 px tall (were 32), with larger text. Cells 44 px and wider have zones: op name at the top (click = op menu), PROB bar in the middle, amount and PTN at the bottom; drag a zone up or down to change it. The modifier shortcuts stay.
+- `dingus.pitchGateSeq`: the op menu has 6 labelled groups (PLAY, JUMP, VEL, LENGTH, RATCH, PITCH) and larger items.
+- `dingus.pitchGateSeq`: every sequence has at least 3 chance lanes. Sequences with fewer get empty lanes. The roll is 622 px tall, so that 3 lanes and "+ CHANCE" are visible.
+- `dingus.gatesSeq` and `dingus.pitchGateSeq`: the stored sequence lists have a swing field (format -6; older lists load with swing 50).
+
+### Fixed
+
+- `dingus.pitchGateSeq`: quick clicks in the cell editor (a double-click) no longer close it or clear the cell under it.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added
@@ -32,7 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.pitchSeq`: a gen~ engine replaces `dingus.sequencedata~` and `dingus.pitchTiming.js`. The step delays are sample-accurate. Skip uses the same clean rule as `dingus.voltagesModulator`. The first outlet is now the pitch signal (0 to 1.0494, through the output toggle); the second outlet still sends the frequency as a message.
 - `dingus.pitchSeq`: the isRunning inlet takes a toggle. 0 stops the sequence (the pitch holds). 1 starts it again from the first step.
 - `dingus.pitchSeq`: presets keep the sequence number and the settings (rate, direction, output, view, tuning), not the step content.
-
 - `dingus.gatesSeq`: the roll is wider on the left, so it lines up with the envelope box under it.
 - `dingus.voltagesModulator` and `dingus.pitchSeq`: the viewport has the earth colours of the other sequencers: voltages and pitches ochre, rest probability terracotta, skip probability sage, range sand. The other controls keep their colours.
 
@@ -80,6 +99,7 @@ First release. The bpatchers come from the earlier folder `mine/! bpatchers` and
 - `v8` read the `read <file>` notification from pattrstorage as a request to load a script. A `[routepass slotlist]` in front of the presets script now passes only the slot list.
 - The abstraction name `clockExtermalMidiDevice` is now `dingus.clockExternalMidiDevice`.
 
-[unreleased]: https://github.com/biomassa/dingus/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/biomassa/dingus/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/biomassa/dingus/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/biomassa/dingus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/biomassa/dingus/releases/tag/v0.1.0

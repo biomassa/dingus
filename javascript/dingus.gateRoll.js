@@ -17,6 +17,8 @@
 //   PROB   per gate: chance the gate plays (full = always)
 //   SKIP   per STEP: chance the step is played, else it is jumped over (full = never skipped)
 //   RATCH  per gate: ratchets 1..8, spread evenly over the whole gate
+//   FADE   per gate: -50..50, the ratchet hits' velocities (< 0 rise to VEL, > 0 fall from it,
+//          exponential; at +-50 the quietest hit is 1% of VEL; only with 2+ ratchets)
 //   DUTY   per gate: on-time of each ratchet hit (only with 2+ ratchets)
 // value lanes: click / drag; shift = fine
 // RANGE strip (bottom, 10 px): play range / sub-loop. drag an end = set it, drag the middle = move it,
@@ -37,6 +39,7 @@
 //   seqstep d       the sequence d up / down (from a waiting one), 0..31 without wrapping
 //   copyseq / pasteseq   copy the current sequence / replace the current sequence with the copy
 //   seqname name    the instance name: reads (or migrates) the sequences file
+//   swing n         the current sequence's swing, 50..75 % (every 2nd step later; 50 = straight)
 //   bankis b        the engine's playing bank (from gen~ out5)
 //   dsp 0|1         audio on / off (off: sequences switch at once)
 //   bang            output the stored list
@@ -48,8 +51,9 @@
 //           'stepsis n' and 'seqis n' (1..32) for the boxes
 // pattr value: -5 sequence (older presets: the stored list below; after the migration it is ignored)
 //
-// stored list: -3 n rstart rend  skip_1 .. skip_n  then per gate: start span fill prob ratch vel duty delay
-//   (-3 = format version; -2 = same without the range; no marker = old 7-field format, delay 0)
+// stored list: -6 n rstart rend swing  skip_1 .. skip_n  then per gate: start span fill prob ratch vel duty
+//   delay fade (-6 = format version; -4 = without swing; -3 = also without fade; -2 = also without the
+//   range; no marker = old 7-field format, delay 0)
 //
 // buffer~ layout (frame = bank * 64 + step, 9 channels; meta at frame 128 + bank: steps, range start,
 //   range end in channels 1-3):
@@ -59,6 +63,7 @@
 //   7 reverse offset: fraction into that step where the mirrored gate starts
 //   8 skip (chance the step is played)
 //   9 delay (fraction of a step before the gate starts)
+//   10 fade (-50..50)
 // ===========================================================
 
 inlets = 2;
@@ -74,9 +79,9 @@ mgraphics.relative_coords = 0;
 mgraphics.autofill = 0;
 
 var MAXSTEPS = 64;
-var NCH = 9;
-var NFIELDS = 8;
-var FORMAT = 3;
+var NCH = 10;
+var NFIELDS = 9;
+var FORMAT = 6;      // stored lists: -6 with swing; -4 and older without (straight)
 var NSEQ = 32;
 var BANKF = 64;      // gate-table frames per bank
 var METABASE = 128;  // frame METABASE + bank: steps, range start, range end
@@ -87,6 +92,7 @@ var n = 16;
 var skips = [];        // per step, 0..1 (1 = always played)
 var gates = [];        // {s, span, f, p, r, v, d, dl}
 var playhead = -1;
+var sw = 50;            // swing of the current sequence, 50..75 % (50 = straight)
 var seqs = [];         // the 32 sequences as stored lists (null = empty)
 var cur = 0;           // the shown sequence, which plays from bank 'bank'
 var bank = 0;
@@ -105,15 +111,18 @@ var rEnd = 15;         // play range, last step
 var RANGEH = 10;       // height of the range strip
 
 // earthy lane colours; numbers sit on small dark labels so they read on any bar
-var LW = 0.86 / 7;
+// the roll is one lane taller since FADE (424 px): the lanes keep their earlier pixel heights
+var GATEW = 0.1246;
+var LW = (1 - GATEW) / 8;
 var LANES = [
-	{ key: 'gate', name: 'GATE', w: 0.14, col: [0.85, 0.65, 0.30] },     // ochre
+	{ key: 'gate', name: 'GATE', w: GATEW, col: [0.85, 0.65, 0.30] },     // ochre
 	{ key: 'v', name: 'VEL', w: LW, lo: 0, hi: 1, col: [0.80, 0.42, 0.26] },        // terracotta
 	{ key: 'f', name: 'LEN', w: LW, lo: 0.05, hi: 1, col: [0.62, 0.66, 0.38] },     // olive
 	{ key: 'dl', name: 'DELAY', w: LW, lo: 0, hi: 1, col: [0.72, 0.52, 0.36] },     // clay
 	{ key: 'p', name: 'PROB', w: LW, lo: 0, hi: 1, col: [0.45, 0.62, 0.42] },       // moss
 	{ key: 'skip', name: 'SKIP', w: LW, lo: 0, hi: 1, perStep: 1, col: [0.42, 0.60, 0.62] }, // slate
 	{ key: 'r', name: 'RATCH', w: LW, lo: 1, hi: 8, int: 1, col: [0.62, 0.47, 0.58] },     // dusty plum
+	{ key: 'fd', name: 'FADE', w: LW, lo: -50, hi: 50, int: 1, bi: 1, col: [0.66, 0.56, 0.44] }, // umber
 	{ key: 'd', name: 'DUTY', w: LW, lo: 0.05, hi: 0.95, col: [0.80, 0.72, 0.52] }  // sand
 ];
 var HEADER = 14;       // step-number strip at the top
@@ -246,6 +255,15 @@ function fits(s, span, self) {
 }
 fits.local = 1;
 
+// FADE: velocity factor of ratchet hit k (as in dingus.pgRoll.js and the engine)
+function fadeFactor(gt, k) {
+	if (gt.r <= 1 || !gt.fd) return 1;
+	var t = k / (gt.r - 1);
+	var m = Math.pow(0.01, Math.abs(gt.fd) / 50);
+	return gt.fd < 0 ? Math.pow(m, 1 - t) : Math.pow(m, t);
+}
+fadeFactor.local = 1;
+
 function clampVal(lane, v) {
 	v = Math.min(lane.hi, Math.max(lane.lo, v));
 	return lane.int ? Math.round(v) : v;
@@ -299,6 +317,7 @@ function writeNotes(bk) {
 		cols[3][g.s] = g.v;
 		cols[4][g.s] = g.d;
 		cols[8][g.s] = g.dl;
+		cols[9][g.s] = g.fd || 0;
 		var e = g.s + g.dl + L;
 		var last = Math.ceil(e - 1e-9) - 1;
 		if (last >= 0 && last < MAXSTEPS) {
@@ -310,17 +329,18 @@ function writeNotes(bk) {
 	buf.poke(1, METABASE + bk, [n]);
 	buf.poke(2, METABASE + bk, [rStart]);
 	buf.poke(3, METABASE + bk, [rEnd]);
+	buf.poke(4, METABASE + bk, [sw]);
 }
 writeNotes.local = 1;
 
 // --- serialization -----------------------------------------
 function flat() {
-	var a = [-FORMAT, n, rStart, rEnd];
+	var a = [-FORMAT, n, rStart, rEnd, sw];
 	var i;
 	for (i = 0; i < n; i++) a.push(skips[i]);
 	for (i = 0; i < gates.length; i++) {
 		var g = gates[i];
-		a.push(g.s, g.span, g.f, g.p, g.r, g.v, g.d, g.dl);
+		a.push(g.s, g.span, g.f, g.p, g.r, g.v, g.d, g.dl, g.fd || 0);
 	}
 	return a;
 }
@@ -332,7 +352,7 @@ function unflat(a) {
 	var ver = 0;
 	if (a[0] < 0) {          // versioned format
 		ver = -a[0];
-		nf = NFIELDS;
+		nf = ver >= 4 ? NFIELDS : 8;
 		a = a.slice(1);
 		if (!a.length) return;
 	}
@@ -344,6 +364,11 @@ function unflat(a) {
 		rEnd = Math.round(a[2]);
 		a = [a[0]].concat(a.slice(3));
 	}
+	sw = 50;
+	if (ver >= 6) {          // swing
+		sw = Math.max(50, Math.min(75, Math.round(a[1])));
+		a = [a[0]].concat(a.slice(2));
+	}
 	clampRange();
 	var i = 1, k;
 	skips = [];
@@ -354,7 +379,8 @@ function unflat(a) {
 		gates.push({
 			s: Math.round(a[i]), span: Math.max(1, Math.round(a[i + 1])), f: a[i + 2],
 			p: a[i + 3], r: Math.round(a[i + 4]), v: a[i + 5], d: a[i + 6],
-			dl: nf >= 8 ? Math.min(1, Math.max(0, a[i + 7])) : 0
+			dl: nf >= 8 ? Math.min(1, Math.max(0, a[i + 7])) : 0,
+			fd: nf >= 9 ? Math.max(-50, Math.min(50, Math.round(a[i + 8]))) : 0
 		});
 	}
 	sortGates();
@@ -493,10 +519,11 @@ function paint() {
 		var hits = Math.max(1, gt.r);
 		var hw = gw / hits;
 		var duty = hits > 1 ? gt.d : 1;
-		var hh = gh * (0.3 + 0.7 * gt.v);
 		if (on) g.set_source_rgba(Math.min(1, gc[0] + 0.15), Math.min(1, gc[1] + 0.2), Math.min(1, gc[2] + 0.25), 1);
 		else g.set_source_rgba(gc[0], gc[1], gc[2], 1);
 		for (k = 0; k < hits; k++) {
+			// height = velocity of the hit (VEL x FADE)
+			var hh = gh * (0.3 + 0.7 * gt.v * fadeFactor(gt, k));
 			g.rectangle(bx + k * hw, gy + gh - hh, Math.max(1, hw * duty), hh);
 			g.fill();
 		}
@@ -515,14 +542,25 @@ function paint() {
 			r = rs[i];
 			lane = r.lane;
 			if (lane.perStep) continue;
-			var val = gt[lane.key];
+			var val = gt[lane.key] || 0;
 			norm = (val - lane.lo) / (lane.hi - lane.lo);
-			var inactive = lane.key === 'd' && gt.r <= 1;
-			bh = Math.max(1, norm * (r.h - 4));
+			var inactive = (lane.key === 'd' || lane.key === 'fd') && gt.r <= 1;
 			if (inactive) g.set_source_rgba(0.40, 0.38, 0.36, 0.7);
 			else g.set_source_rgba(lane.col[0], lane.col[1], lane.col[2], 0.9);
-			g.rectangle(x0, r.top + r.h - 2 - bh, spanW, bh);
-			g.fill();
+			if (lane.bi) {
+				// bipolar: bar from the middle line
+				var mid = r.top + r.h / 2;
+				var by = r.top + 2 + (1 - norm) * (r.h - 4);
+				g.rectangle(x0, Math.min(mid, by), spanW, Math.max(1, Math.abs(by - mid)));
+				g.fill();
+				g.set_source_rgba(0.35, 0.35, 0.38, 1);
+				g.rectangle(x0, mid - 0.5, spanW, 1);
+				g.fill();
+			} else {
+				bh = Math.max(1, norm * (r.h - 4));
+				g.rectangle(x0, r.top + r.h - 2 - bh, spanW, bh);
+				g.fill();
+			}
 			if (spanW >= 18 && r.h >= 12) {
 				txt = lane.int ? String(val) : String(Math.round(val * 100));
 				numLabel(g, x0 + 1, r.top + 2, txt);
@@ -755,12 +793,18 @@ function afterSwitch() {
 	park();
 	sendRange();
 	outlet(0, 'stepsis', n);
+	outlet(0, 'swingis', sw);
 	outlet(0, 'seqis', cur + 1);
 	mgraphics.redraw();
 	notifyclients();
 	scheduleSave();
 }
 afterSwitch.local = 1;
+
+function swing(v) {
+	sw = Math.max(50, Math.min(75, Math.round(v) || 50));
+	changed(true);
+}
 
 function copyseq() {
 	clip = flat();
@@ -993,7 +1037,7 @@ function onclick(x, y, but, cmd, shift, capslock, option, ctrl) {
 		drag = { mode: 'move', g: gt, grab: k - gt.s, moved: false, copy: !!option, cloned: false };
 		return;
 	}
-	gt = { s: k, span: 1, f: 1, p: 1, r: 1, v: 1, d: 0.5, dl: 0 };
+	gt = { s: k, span: 1, f: 1, p: 1, r: 1, v: 1, d: 0.5, dl: 0, fd: 0 };
 	gates.push(gt);
 	drag = { mode: 'span', g: gt, k0: k, moved: true };
 	changed(false);
