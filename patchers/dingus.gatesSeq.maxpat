@@ -1149,9 +1149,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						211.0,
+						183.0,
 						2.0,
-						736.0,
+						764.0,
 						380.0
 					],
 					"textfile": {

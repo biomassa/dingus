@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.pitchSeq`: the isRunning inlet takes a toggle. 0 stops the sequence (the pitch holds). 1 starts it again from the first step.
 - `dingus.pitchSeq`: presets keep the sequence number and the settings (rate, direction, output, view, tuning), not the step content.
 
+- `dingus.gatesSeq`: the roll is wider on the left, so it lines up with the envelope box under it.
 - `dingus.voltagesModulator` and `dingus.pitchSeq`: the viewport has the earth colours of the other sequencers: voltages and pitches ochre, rest probability terracotta, skip probability sage, range sand. The other controls keep their colours.
 
 ### Fixed
