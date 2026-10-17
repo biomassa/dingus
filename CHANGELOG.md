@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-17
+
 ### Added
 
 - `dingus.pitchGateSeq`: 32 sequences. A sequence has its notes, lanes, chance lanes, play range and step count. The scale mask and the tuning are shared.
@@ -77,5 +79,6 @@ First release. The bpatchers come from the earlier folder `mine/! bpatchers` and
 - `v8` read the `read <file>` notification from pattrstorage as a request to load a script. A `[routepass slotlist]` in front of the presets script now passes only the slot list.
 - The abstraction name `clockExtermalMidiDevice` is now `dingus.clockExternalMidiDevice`.
 
-[unreleased]: https://github.com/biomassa/dingus/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/biomassa/dingus/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/biomassa/dingus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/biomassa/dingus/releases/tag/v0.1.0
