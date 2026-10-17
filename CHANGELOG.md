@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.pitchGateSeq`: all 32 sequences are in `uPGseq_<name>.json` in the presets folder. The first time, the notes of each slot in the presets file become a sequence (slot n = sequence n).
 - `dingus.gatesSeq`: the same 32 sequences, with the same controls, inlet and switch at the phasor wrap. A sequence has its gates, skips, play range and step count. The file is `uGATEseq_<name>.json`. A `clear all` button with confirmation is added.
 - `dingus.voltagesModulator`: the same 32 sequences, with the same controls and inlet. A sequence has its step count, voltages, rest and skip probabilities and play range. The file is `uVOLTseq_<name>.json`. The script `dingus.voltBank.js` keeps the sequences.
+- `dingus.pitchSeq`: the same 32 sequences, with the same controls and inlet. A sequence has its step count, pitches, step delays, deleted steps, rest and skip probabilities and play range. The file is `uPITCHseq_<name>.json`. The script `dingus.pitchBank.js` keeps the sequences and writes the pitch table from the tuning.
+- `dingus.pitchGrid.js`: a `setstate` message sets the pitches, delays and deleted steps without output.
 
 ### Changed
 
@@ -25,6 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.voltagesModulator`: a gen~ engine replaces `dingus.sequencedata~`. The switch to a new sequence is sample-exact. Skip: only steps in the play range can play, and their skip values are raised so the highest is 1. The first outlet still sends a message for each step.
 - `dingus.voltagesModulator`: the isRunning inlet takes a toggle. 0 stops the sequence (the value holds). 1 starts it again from the first step.
 - `dingus.voltagesModulator`: presets keep the sequence number, rate, direction and output, not the step content.
+- `dingus.pitchSeq`: a gen~ engine replaces `dingus.sequencedata~` and `dingus.pitchTiming.js`. The step delays are sample-accurate. Skip uses the same clean rule as `dingus.voltagesModulator`. The first outlet is now the pitch signal (0 to 1.0494, through the output toggle); the second outlet still sends the frequency as a message.
+- `dingus.pitchSeq`: the isRunning inlet takes a toggle. 0 stops the sequence (the pitch holds). 1 starts it again from the first step.
+- `dingus.pitchSeq`: presets keep the sequence number and the settings (rate, direction, output, view, tuning), not the step content.
+
+- `dingus.voltagesModulator` and `dingus.pitchSeq`: the viewport has the earth colours of the other sequencers: voltages and pitches ochre, rest probability terracotta, skip probability sage, range sand. The other controls keep their colours.
+
+### Fixed
+
+- `dingus.voltagesModulator` and `dingus.pitchSeq`: the range slider marks step boundaries (0 to the step count), as `dingus.sequencedata~` read it. The sequence scripts read and set it that way: the scale is right again, and the end of the range is not one step too far.
+
+### Removed
+
+- `dingus.sequencedata~` and `dingus.pitchTiming.js`: no bpatcher uses them now.
+- The dependencies on Data Knot and FluCoMa, and the Data Knot notice.
 
 ## [0.1.0] - 2026-10-17
 

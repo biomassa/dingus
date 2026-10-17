@@ -447,7 +447,19 @@
 						}
 					},
 					"size": 8.0,
-					"varname": "rslider"
+					"varname": "rslider",
+					"fgcolor": [
+						0.8,
+						0.72,
+						0.52,
+						1.0
+					],
+					"bgcolor": [
+						0.12,
+						0.11,
+						0.1,
+						1.0
+					]
 				}
 			},
 			{
@@ -581,12 +593,18 @@
 					"shadowalpha": 1.0,
 					"size": 7,
 					"slidercolor": [
-						0.498,
-						0.5561,
-						0.7451,
+						0.52,
+						0.6,
+						0.46,
 						1.0
 					],
-					"varname": "multislider[2]"
+					"varname": "multislider[2]",
+					"bgcolor": [
+						0.12,
+						0.11,
+						0.1,
+						1.0
+					]
 				}
 			},
 			{
@@ -1001,13 +1019,19 @@
 					"setstyle": 1,
 					"size": 7,
 					"slidercolor": [
-						0.0784313725490196,
-						0.6784313725490196,
-						0.08235294117647059,
+						0.85,
+						0.65,
+						0.3,
 						1.0
 					],
 					"style": "rnbodefault",
-					"varname": "multislider"
+					"varname": "multislider",
+					"bgcolor": [
+						0.12,
+						0.11,
+						0.1,
+						1.0
+					]
 				}
 			},
 			{
@@ -1191,7 +1215,19 @@
 					"shadowblend": 0.12,
 					"size": 7,
 					"style": "rnbohighcontrast",
-					"varname": "multislider[1]"
+					"varname": "multislider[1]",
+					"slidercolor": [
+						0.8,
+						0.42,
+						0.26,
+						1.0
+					],
+					"bgcolor": [
+						0.12,
+						0.11,
+						0.1,
+						1.0
+					]
 				}
 			},
 			{

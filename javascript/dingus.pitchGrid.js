@@ -11,6 +11,7 @@
 // inlet 0:
 //   list ...        set step values and output
 //   setlist ...     set step values, no output
+//   setstate -2 n values(n) delays(n) offs(n)   set everything, no output
 //   bang            output step values
 //   steps n         resize to n steps (keeps values, new steps copy the last one)
 //   setmin n        lowest displayed value
@@ -221,7 +222,7 @@ function paint() {
 				continue;
 			}
 			r = rowOfValue(v);
-			set_source_rgba(0.98, 0.78, 0.10, 1);
+			set_source_rgba(0.85, 0.65, 0.30, 1);   // ochre, as the notes of the other rolls
 			rectangle(x0, r.top, cw, Math.max(2, r.h));
 			fill();
 		}
@@ -326,6 +327,20 @@ function list() {
 	redraw();
 	notifyclients();
 	output();
+}
+
+// setstate -2 n values(n) delays(n) offs(n): everything at once, no output (sequence switches)
+function setstate() {
+	var a = arrayfromargs(arguments);
+	if (a.length < 2 || a[0] >= 0) return;
+	var n = Math.max(1, Math.round(a[1]));
+	values = toInts(a.slice(2, 2 + n));
+	dels = a.slice(2 + n, 2 + 2 * n);
+	offs = toInts(a.slice(2 + 2 * n, 2 + 3 * n));
+	syncLen();
+	if (playhead >= values.length) playhead = -1;
+	redraw();
+	notifyclients();
 }
 
 function setlist() {

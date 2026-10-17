@@ -91,7 +91,7 @@ const list = (t, name, ...a) => {
 	const t = load();
 	t.ctx.steps(5);
 	list(t, "skip", 0.2, 0.5, 0.25, 1, 0);
-	t.ctx.range(0, 2);
+	t.ctx.range(0, 3); // slider boundaries 0..3 = steps 1-3
 	assert.ok(close(t.peek("volt", 2, 1), 1), "highest in the range: 1");
 	assert.ok(close(t.peek("volt", 2, 0), 0.7));
 	assert.ok(close(t.peek("volt", 2, 2), 0.75));
@@ -103,7 +103,7 @@ const list = (t, name, ...a) => {
 // --- migration from the presets file's slots ---
 {
 	const files = new Map();
-	const slot = (k, v) => ({ data: { number: [k], multislider: v, "multislider[1]": Array(k).fill(1), "multislider[2]": Array(k).fill(1), rslider: [0, k - 1] } });
+	const slot = (k, v) => ({ data: { number: [k], multislider: v, "multislider[1]": Array(k).fill(1), "multislider[2]": Array(k).fill(1), rslider: [0, k] } });
 	files.set(FOLDER + "uVOLT_bass.json", JSON.stringify({ pattrstorage: { slots: { 1: slot(3, [0.1, 0.2, 0.3]), 4: slot(2, [0.9, 0.8]) } } }));
 	const t = load(files);
 	t.ctx.seqname("bass");
@@ -154,5 +154,20 @@ t.ctx.clear();
 assert.deepEqual(plain(t.run("vals")), [0, 0, 0, 0, 0, 0]);
 t.ctx.clearall();
 assert.ok(t.run("seqs.every((s, i) => i === cur || s === null)"));
+
+// --- the range slider marks step boundaries ---
+t = load();
+t.ctx.steps(5);
+t.ctx.seqname("r");
+t.out.length = 0;
+t.ctx.range(1, 3);
+assert.equal(t.run("rStart"), 1);
+assert.equal(t.run("rEnd"), 2, "steps 2-3");
+t.ctx.range(2, 2);
+assert.equal(t.run("rEnd"), 2, "an empty range is ignored");
+t.ctx.dsp(0);
+t.ctx.seq(1);
+t.ctx.seq(0);
+assert.deepEqual(plain(t.out.filter((m) => m[0] === "rsl").slice(-2)), [["rsl", "size", 6], ["rsl", "set", 1, 3]]);
 
 console.log("voltbank: all tests passed");

@@ -13,7 +13,7 @@
 //
 // inlet 0:
 //   vals ... / rest ... / skip ...   the lists from the multisliders (the current sequence)
-//   range a b                        play range, 0-based steps
+//   range a b                        play range from the range slider: steps a .. b - 1 (step boundaries)
 //   steps n                          step count (the bpatcher's stepsChange pads and re-sends the lists)
 //   seq n / seqstep d                sequence 0..31 / d up or down (from a waiting one)
 //   copyseq / pasteseq / clear / clearall
@@ -25,7 +25,7 @@
 //   needbuffer                       at load
 //   engine pendbank b / engine swapnow k
 //   msv|msr|mss size n, msv|msr|mss setlist ...   the multisliders (values, rest, skip)
-//   rsl size n, rsl set a b          the range slider
+//   rsl size n+1, rsl set a b+1      the range slider (step boundaries)
 //   grid columns n                   the step display (live.grid)
 //   stepsis n, seqis n (1..32)       the boxes
 //
@@ -143,8 +143,8 @@ function showControls() {
 	outlet(0, 'msr', 'setlist', ...rest);
 	outlet(0, 'mss', 'size', n);
 	outlet(0, 'mss', 'setlist', ...skip);
-	outlet(0, 'rsl', 'size', n);
-	outlet(0, 'rsl', 'set', rStart, rEnd);
+	outlet(0, 'rsl', 'size', n + 1);
+	outlet(0, 'rsl', 'set', rStart, rEnd + 1);
 	outlet(0, 'grid', 'columns', n);
 	outlet(0, 'stepsis', n);
 	outlet(0, 'seqis', cur + 1);
@@ -174,9 +174,13 @@ function anything() {
 	changed();
 }
 
+// the range slider marks step boundaries (0 .. steps, as sequencedata~ read it): a b = steps a .. b - 1
 function range(a, b) {
+	a = Math.round(a);
+	b = Math.round(b);
+	if (b <= a) return;
 	rStart = a;
-	rEnd = b;
+	rEnd = b - 1;
 	changed();
 }
 
@@ -323,14 +327,14 @@ function saveSeqs() {
 function fromSlot(d) {
 	if (!d || !d.number) return null;
 	const k = Math.max(1, Math.min(MAXSTEPS, Math.round([].concat(d.number)[0]) || 1));
-	const r = [].concat(d.rslider || [0, k - 1]);
+	const r = [].concat(d.rslider || [0, k]);
 	return {
 		n: k,
 		vals: [].concat(d.multislider || []),
 		rest: [].concat(d['multislider[1]'] || []),
 		skip: [].concat(d['multislider[2]'] || []),
 		rs: Math.round(r[0]) || 0,
-		re: r.length > 1 ? Math.round(r[1]) : k - 1,
+		re: r.length > 1 && Math.round(r[1]) > Math.round(r[0]) ? Math.round(r[1]) - 1 : k - 1,
 	};
 }
 

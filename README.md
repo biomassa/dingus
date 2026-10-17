@@ -58,7 +58,7 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 |---|---|---|
 | `dingus.gestureLooper` | Records and plays MPE gestures. Put it between `midiin` and a note bpatcher. It has 32 sequences and a piano roll with lanes for pressure, Y, bend, velocity and probability. It has overdub, undo and a phasor clock. | `gestureLooper_<name>.json` |
 | `dingus.pitchGateSeq` | A monophonic pitch and gate sequencer with a piano roll. The rows come from a Scala tuning. Each note has lanes for velocity, glide, ratchets, fade and duty. It has chance lanes, beats per step and a play range. It has 32 sequences. A new sequence starts at the next phasor wrap. | `uPG_<name>.json`, sequences in `uPGseq_<name>.json` |
-| `dingus.pitchSeq` | A step pitch sequencer for Scala tunings. It has a pitch grid, a delay for each step and a tuning slider. | `uPITCH_<name>.json` |
+| `dingus.pitchSeq` | A step pitch sequencer for Scala tunings, on a gen~ engine. It has a pitch grid, a delay for each step, deleted steps, rest and skip probabilities and a tuning slider. It has 32 sequences. A new sequence starts at the next phasor wrap. The isRunning inlet takes a toggle: 0 stops, 1 starts from the first step. The first outlet is the pitch signal (0 to 1.0494); the second outlet sends the frequency as a message. | `uPITCH_<name>.json`, sequences in `uPITCHseq_<name>.json` |
 | `dingus.gatesSeq` | A gate sequencer. A gate can span many steps. A lane sets the length of the last step of each gate. It has 32 sequences. A new sequence starts at the next phasor wrap. | `uGATE_<name>.json`, sequences in `uGATEseq_<name>.json` |
 | `dingus.voltagesModulator` | A stepped voltage modulator with rest and skip probabilities, on a gen~ engine. It has 32 sequences. A new sequence starts at the next phasor wrap. The isRunning inlet takes a toggle: 0 stops, 1 starts from the first step. | `uVOLT_<name>.json`, sequences in `uVOLTseq_<name>.json` |
 | `dingus.masterClock` | The master phasor clock. It sends MIDI clock. Its clock modulation curve changes the tempo on purpose, for irregular clocks. | in the studio patch |
@@ -97,14 +97,13 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 | `dingus.envNext.js` | Sends "next" to a `function` envelope at gate-off, but only if the envelope has a sustain point. |
 | `dingus.pitchGrid.js` | The pitch grid of `dingus.pitchSeq` (jsui). |
 | `dingus.voltBank.js` | The 32 sequences of `dingus.voltagesModulator` and the tables of its gen~ engine (v8). |
-| `dingus.pitchTiming.js` | The step delays and the deleted steps of `dingus.pitchSeq` (v8). |
+| `dingus.pitchBank.js` | The 32 sequences of `dingus.pitchSeq` and the tables of its gen~ engine, with the pitch table from the tuning (v8). |
 | `dingus.tuningSlider.js` | A key slider for Scala tunings in `dingus.pitchSeq`. This is `sslider.js` by Timo Hoogland. Refer to [Third-party notices](#third-party-notices). |
 
 ### Abstractions (`patchers/abstractions/`)
 
 | Abstraction | Function |
 |---|---|
-| `dingus.sequencedata~` | The sequence data of `dingus.pitchSeq`. This is a corrected copy of `dk.sequencedata~` from Data Knot. Refer to [Third-party notices](#third-party-notices). |
 | `dingus.clockThePam` | The clock output for Pamela's Workout. |
 | `dingus.clockExternalMidiDevice` | The MIDI clock for an external device. |
 | `dingus.es8InputsCompensation` | Compensation for the ES-8 inputs: 4 inputs, 1 output. |
@@ -129,8 +128,6 @@ Install these packages before you use dingus. dingus does not include them.
 | Package | Used by | Source |
 |---|---|---|
 | th.scala (Timo Hoogland, MIT License) | `dingus.pitchGateSeq`, `dingus.pitchSeq` | github.com/tmhglnd/th.scala |
-| Data Knot (Rodrigo Constanzo, BSD 3-Clause License) | `dingus.sequencedata~` (`isThisAValidBuffer.js`) | Max Package Manager, rodrigoconstanzo.com/data-knot |
-| FluCoMa (University of Huddersfield, BSD 3-Clause License) | `dingus.sequencedata~` (`fluid.buf2list`, `fluid.list2buf`) | Max Package Manager, github.com/flucoma/flucoma-max |
 
 ## Tests
 
@@ -171,42 +168,6 @@ SOFTWARE.
 ## Third-party notices
 
 dingus contains code from the projects below. The notices and license texts are as their authors wrote them.
-
-### Data Knot
-
-`patchers/abstractions/dingus.sequencedata~.maxpat` is a modified copy of `dk.sequencedata~.maxpat` from Data Knot.
-
-```
-Data Knot uses the BSD 3-Clause License
-
-Copyright (c) 2025 Rodrigo Constanzo
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-* Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
 
 ### th.scala
 
