@@ -692,7 +692,7 @@
 						140.0,
 						22.0
 					],
-					"text": "buffer~ #0-gates 10 9"
+					"text": "buffer~ #0-gates @samps 256 @chans 9"
 				}
 			},
 			{
@@ -746,7 +746,7 @@
 						100.0,
 						22.0
 					],
-					"text": "buffer #0-gates"
+					"text": "buffer #0-gates, seqname #1"
 				}
 			},
 			{
@@ -772,8 +772,9 @@
 					"id": "gen",
 					"maxclass": "newobj",
 					"numinlets": 4,
-					"numoutlets": 4,
+					"numoutlets": 5,
 					"outlettype": [
+						"signal",
 						"signal",
 						"signal",
 						"signal",
@@ -871,15 +872,16 @@
 							},
 							{
 								"box": {
-									"code": "// dingusGate engine: steps from the phasor, gates from the gate table buffer\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// out1 gate or trigger (level = velocity)  out2 velocity (held)  out3 current step\n// out4 envelope gate (every ratchet, or whole gate)\nBuffer gb(\"dingus-gate-none\");\nParam steps(16, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory pend(0);\nHistory pidx(0);\nHistory poff(0);\nHistory pcut(64);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\n\nn = clamp(floor(steps + in3 * steps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\ns1 = 0;\nl = 0;\np = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\ng = 0;\ni = 0;\nlo = 0;\nhi = 0;\nok = 0;\nhit = 0;\nlraw = 0;\neg = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running gate (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip\nlo = clamp(rstart, 0, n - 1);\nhi = clamp(rend, lo, n - 1);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t}\n\t// skip: jump over steps whose skip roll fails (channel 8 = chance the step plays)\n\tfor (i = 0; i < n; i += 1) {\n\t\tif (noise() * 0.5 + 0.5 < peek(gb, nxt, 7)) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tpend = 0;\n\tif (ok == 0) {\n\t\t// every step skipped: nothing plays\n\t} else if (d == 1) {\n\t\t// reverse: the gate whose played end falls in this step, mirrored\n\t\ts1 = peek(gb, nxt, 5);\n\t\tif (s1 > 0) {\n\t\t\tpidx = s1 - 1;\n\t\t\tpoff = peek(gb, nxt, 6);\n\t\t\tpcut = 64;\n\t\t\tpend = 1;\n\t\t}\n\t} else {\n\t\t// forward / random: the gate starting here, after its delay (channel 9)\n\t\tl = peek(gb, nxt, 0);\n\t\tif (l > 0) {\n\t\t\tpidx = nxt;\n\t\t\tpoff = peek(gb, nxt, 8);\n\t\t\tpcut = (d == 0) ? hi + 1 - nxt - poff : 64;\n\t\t\tpend = 1;\n\t\t}\n\t}\n}\n\n// pending gate: starts part-way into the step (delay forward, mirrored offset in reverse)\nif (pend > 0 && running && sub >= poff) {\n\tpend = 0;\n\tfire = 1;\n\tfidx = pidx;\n\tflen = min(peek(gb, pidx, 0), pcut);\n}\n\n// probability is rolled once, when the gate starts\nif (fire > 0 && flen > 0) {\n\tp = peek(gb, fidx, 1);\n\tif (noise() * 0.5 + 0.5 < p) {\n\t\tif (lastout > 0 && trig == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = flen;\n\t\tgrat = max(peek(gb, fidx, 2), 1);\n\t\tgvel = peek(gb, fidx, 3);\n\t\tgduty = peek(gb, fidx, 4);\n\t\tlraw = peek(gb, fidx, 0);\n\t\tgfill = lraw - ceil(lraw) + 1;\n\t\thitprev = -1;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per gate / ratchet hit, 1..10 ms\n\t// pulse length from LEN (fill 0.05..1), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = gvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole gate evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = gvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = gvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new gate follows a high one, so it retriggers\n// envelope gate: every ratchet hit, or the whole gate (first hit only)\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = gvel;\nout3 = cur;\nout4 = eg;\n",
+									"code": "// dingusGate engine: steps from the phasor, gates from the gate table buffer\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// in3 length mod (-1..1, x steps)      in4 direction mod (-1..1, x 3 modes)\n// out1 gate or trigger (level = velocity)  out2 velocity (held)  out3 current step\n// out4 envelope gate (every ratchet, or whole gate)  out5 the bank that plays (0 / 1)\n// two banks of gate tables, one per sequence: bank b at frames b * 64 .. b * 64 + 63; its meta at\n//   frame 128 + b: ch 0 steps, ch 1 range start, ch 2 range end. pendbank = the bank of a waiting\n//   sequence (-1 none): it takes over at the phasor wrap, at once when the clock stands still (0.1 s)\n//   or play is off, or when swapnow changes. The new sequence starts at its first step.\nBuffer gb(\"dingus-gate-none\");\nParam steps(16, min=1, max=64);\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam rstart(0, min=0, max=63);\nParam rend(63, min=0, max=63);\nParam everyr(1, min=0, max=1);\nParam pendbank(-1, min=-1, max=1);\nParam swapnow(0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory pend(0);\nHistory pidx(0);\nHistory poff(0);\nHistory pcut(64);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\n\n// bank swap, before anything reads the tables of this sample\nwrapped = (in1 - pph) < -0.5;\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pendbank >= 0 && pendbank != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pendbank;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 64;\nmb = 128 + bk;\nmsteps = max(peek(gb, mb, 0), 1);\n\nn = clamp(floor(msteps + in3 * msteps + 0.5), 1, 64);\nd = wrap(floor(dir + in4 * 3 + 0.5), 0, 3);\nrunning = play > 0;\nnxt = 0;\ns1 = 0;\nl = 0;\np = 0;\nrp = 0;\nfire = 0;\nfidx = 0;\nflen = 0;\ng = 0;\ni = 0;\nlo = 0;\nhi = 0;\nok = 0;\nhit = 0;\nlraw = 0;\neg = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nds = sub - prevsub;\nnewstep = ds < -0.5;\nadv = ds;\nif (newstep) {\n\tadv = ds + 1;\n}\nadv = max(adv, 0);\nprevsub = sub;\n\n// advance the running gate (time counted in steps, straight from the phasor)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// play range (sub-loop) from the editor's range strip\nlo = clamp(peek(gb, mb, 1), 0, n - 1);\nhi = clamp(peek(gb, mb, 2), lo, n - 1);\n\nif (newstep && running) {\n\tif (rst > 0) {\n\t\tnxt = (d == 1) ? hi : lo;\n\t\trst = 0;\n\t} else if (d == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (d == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t}\n\t// skip: jump over steps whose skip roll fails (channel 8 = chance the step plays)\n\tfor (i = 0; i < n; i += 1) {\n\t\tif (noise() * 0.5 + 0.5 < peek(gb, nb + nxt, 7)) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (d == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (d == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * (hi - lo + 1)), hi - lo);\n\t\t}\n\t}\n\tcur = nxt;\n\tpend = 0;\n\tif (ok == 0) {\n\t\t// every step skipped: nothing plays\n\t} else if (d == 1) {\n\t\t// reverse: the gate whose played end falls in this step, mirrored\n\t\ts1 = peek(gb, nb + nxt, 5);\n\t\tif (s1 > 0) {\n\t\t\tpidx = nb + s1 - 1;\n\t\t\tpoff = peek(gb, nb + nxt, 6);\n\t\t\tpcut = 64;\n\t\t\tpend = 1;\n\t\t}\n\t} else {\n\t\t// forward / random: the gate starting here, after its delay (channel 9)\n\t\tl = peek(gb, nb + nxt, 0);\n\t\tif (l > 0) {\n\t\t\tpidx = nb + nxt;\n\t\t\tpoff = peek(gb, nb + nxt, 8);\n\t\t\tpcut = (d == 0) ? hi + 1 - nxt - poff : 64;\n\t\t\tpend = 1;\n\t\t}\n\t}\n}\n\n// pending gate: starts part-way into the step (delay forward, mirrored offset in reverse)\nif (pend > 0 && running && sub >= poff) {\n\tpend = 0;\n\tfire = 1;\n\tfidx = pidx;\n\tflen = min(peek(gb, pidx, 0), pcut);\n}\n\n// probability is rolled once, when the gate starts\nif (fire > 0 && flen > 0) {\n\tp = peek(gb, fidx, 1);\n\tif (noise() * 0.5 + 0.5 < p) {\n\t\tif (lastout > 0 && trig == 0) {\n\t\t\tgapc = floor(samplerate * 0.003);\n\t\t}\n\t\tact = 1;\n\t\tel = 0;\n\t\tglen = flen;\n\t\tgrat = max(peek(gb, fidx, 2), 1);\n\t\tgvel = peek(gb, fidx, 3);\n\t\tgduty = peek(gb, fidx, 4);\n\t\tlraw = peek(gb, fidx, 0);\n\t\tgfill = lraw - ceil(lraw) + 1;\n\t\thitprev = -1;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per gate / ratchet hit, 1..10 ms\n\t// pulse length from LEN (fill 0.05..1), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = gvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole gate evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = gvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = gvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new gate follows a high one, so it retriggers\n// envelope gate: every ratchet hit, or the whole gate (first hit only)\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = gvel;\nout3 = cur;\nout4 = eg;\nout5 = bk;\n",
 									"fontface": 0,
 									"fontname": "<Monospaced>",
 									"fontsize": 12.0,
 									"id": "gcode",
 									"maxclass": "codebox",
 									"numinlets": 4,
-									"numoutlets": 4,
+									"numoutlets": 5,
 									"outlettype": [
+										"",
 										"",
 										"",
 										"",
@@ -951,6 +953,21 @@
 										22.0
 									],
 									"text": "out 4"
+								}
+							},
+							{
+								"box": {
+									"id": "gout5",
+									"maxclass": "newobj",
+									"numinlets": 1,
+									"numoutlets": 0,
+									"patching_rect": [
+										500.0,
+										630.0,
+										45.0,
+										22.0
+									],
+									"text": "out 5"
 								}
 							}
 						],
@@ -1047,6 +1064,18 @@
 									],
 									"source": [
 										"gin4",
+										0
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gcode",
+										4
+									],
+									"destination": [
+										"gout5",
 										0
 									]
 								}
@@ -2222,6 +2251,564 @@
 					],
 					"text": "routepass slotlist"
 				}
+			},
+			{
+				"box": {
+					"id": "sq_bsnap",
+					"maxclass": "newobj",
+					"text": "snapshot~ 20",
+					"patching_rect": [
+						1100.0,
+						1040.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"float"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_bchg",
+					"maxclass": "newobj",
+					"text": "change",
+					"patching_rect": [
+						1100.0,
+						1070.0,
+						50.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"int",
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_bpp",
+					"maxclass": "newobj",
+					"text": "prepend bankis",
+					"patching_rect": [
+						1100.0,
+						1100.0,
+						100.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_dsp",
+					"maxclass": "newobj",
+					"text": "dspstate~",
+					"patching_rect": [
+						1230.0,
+						1040.0,
+						70.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 4,
+					"outlettype": [
+						"int",
+						"float",
+						"int",
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_dsppp",
+					"maxclass": "newobj",
+					"text": "prepend dsp",
+					"patching_rect": [
+						1230.0,
+						1070.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_rt",
+					"maxclass": "newobj",
+					"text": "route engine stepsis seqis",
+					"patching_rect": [
+						830.0,
+						1040.0,
+						170.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 4,
+					"outlettype": [
+						"",
+						"",
+						"",
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_setst",
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"patching_rect": [
+						830.0,
+						1080.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_setsq",
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"patching_rect": [
+						930.0,
+						1080.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_cmt",
+					"maxclass": "comment",
+					"text": "seq",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						40.0,
+						1040.0,
+						40.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						4.0,
+						182.0,
+						30.0,
+						20.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_box",
+					"maxclass": "number",
+					"maximum": 32,
+					"minimum": 1,
+					"numinlets": 1,
+					"numoutlets": 2,
+					"outlettype": [
+						"",
+						"bang"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						40.0,
+						1064.0,
+						50.0,
+						22.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						34.0,
+						182.0,
+						40.0,
+						22.0
+					],
+					"varname": "gs_seq"
+				}
+			},
+			{
+				"box": {
+					"id": "sq_m1",
+					"maxclass": "newobj",
+					"text": "- 1",
+					"patching_rect": [
+						40.0,
+						1100.0,
+						40.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_pseq",
+					"maxclass": "newobj",
+					"text": "prepend seq",
+					"patching_rect": [
+						40.0,
+						1130.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_minus",
+					"maxclass": "textbutton",
+					"text": "-",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						130.0,
+						1064.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						78.0,
+						182.0,
+						22.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_minus_m",
+					"maxclass": "message",
+					"text": "seqstep -1",
+					"patching_rect": [
+						130.0,
+						1100.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_plus",
+					"maxclass": "textbutton",
+					"text": "+",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						200.0,
+						1064.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						102.0,
+						182.0,
+						22.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_plus_m",
+					"maxclass": "message",
+					"text": "seqstep 1",
+					"patching_rect": [
+						200.0,
+						1100.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_copy",
+					"maxclass": "textbutton",
+					"text": "copy",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						270.0,
+						1064.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						4.0,
+						208.0,
+						50.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_copy_m",
+					"maxclass": "message",
+					"text": "copyseq",
+					"patching_rect": [
+						270.0,
+						1100.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_paste",
+					"maxclass": "textbutton",
+					"text": "paste",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						340.0,
+						1064.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						58.0,
+						208.0,
+						54.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_paste_m",
+					"maxclass": "message",
+					"text": "pasteseq",
+					"patching_rect": [
+						340.0,
+						1100.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_clear",
+					"maxclass": "textbutton",
+					"text": "clear",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						410.0,
+						1064.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						116.0,
+						208.0,
+						50.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_clear_m",
+					"maxclass": "message",
+					"text": "clear",
+					"patching_rect": [
+						410.0,
+						1100.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_clearall",
+					"maxclass": "textbutton",
+					"text": "clear all",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						500.0,
+						1064.0,
+						70.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						4.0,
+						234.0,
+						80.0,
+						22.0
+					],
+					"textoncolor": [
+						1.0,
+						0.345,
+						0.345,
+						1.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_dlg",
+					"maxclass": "newobj",
+					"text": "dialog @mode 2 @label \"Empty all 32 sequences?\"",
+					"patching_rect": [
+						500.0,
+						1100.0,
+						300.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_clearall_m",
+					"maxclass": "message",
+					"text": "clearall",
+					"patching_rect": [
+						500.0,
+						1130.0,
+						60.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "sq_in",
+					"maxclass": "inlet",
+					"comment": "sequence 1-32 (takes over at the phasor wrap)",
+					"index": 0,
+					"numinlets": 0,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						900.0,
+						30.0,
+						30.0,
+						30.0
+					]
+				}
 			}
 		],
 		"lines": [
@@ -3072,6 +3659,378 @@
 					],
 					"source": [
 						"prejs_slotfilter",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"gen",
+						4
+					],
+					"destination": [
+						"sq_bsnap",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_bsnap",
+						0
+					],
+					"destination": [
+						"sq_bchg",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_bchg",
+						0
+					],
+					"destination": [
+						"sq_bpp",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_bpp",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_dsp",
+						0
+					],
+					"destination": [
+						"sq_dsppp",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_dsppp",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"gateroll",
+						0
+					],
+					"destination": [
+						"sq_rt",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_rt",
+						0
+					],
+					"destination": [
+						"gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_rt",
+						1
+					],
+					"destination": [
+						"sq_setst",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_setst",
+						0
+					],
+					"destination": [
+						"number",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_rt",
+						2
+					],
+					"destination": [
+						"sq_setsq",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_setsq",
+						0
+					],
+					"destination": [
+						"sq_box",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_box",
+						0
+					],
+					"destination": [
+						"sq_m1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_m1",
+						0
+					],
+					"destination": [
+						"sq_pseq",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_pseq",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_minus",
+						0
+					],
+					"destination": [
+						"sq_minus_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_minus_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_plus",
+						0
+					],
+					"destination": [
+						"sq_plus_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_plus_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_copy",
+						0
+					],
+					"destination": [
+						"sq_copy_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_copy_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_paste",
+						0
+					],
+					"destination": [
+						"sq_paste_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_paste_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_clear",
+						0
+					],
+					"destination": [
+						"sq_clear_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_clear_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_clearall",
+						0
+					],
+					"destination": [
+						"sq_dlg",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_dlg",
+						0
+					],
+					"destination": [
+						"sq_clearall_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_clearall_m",
+						0
+					],
+					"destination": [
+						"gateroll",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"sq_in",
+						0
+					],
+					"destination": [
+						"sq_m1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"autopattr",
+						1
+					],
+					"destination": [
+						"sq_box",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"autopattr",
+						1
+					],
+					"destination": [
+						"number",
 						0
 					]
 				}

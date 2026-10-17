@@ -21,23 +21,38 @@
 // value lanes: click / drag; shift = fine
 // RANGE strip (bottom, 10 px): play range / sub-loop. drag an end = set it, drag the middle = move it,
 //          double-click = full range
+// SEQUENCES: 32, each with its gates, skips, play range and step count. The shown sequence plays from
+//          one engine bank; a newly chosen one is written to the other bank and takes over at the
+//          phasor wrap (the engine swaps; 'bankis' confirms). Selections made before the confirmation
+//          wait for it. All 32 are saved to <presets folder>/uGATEseq_<name>.json on every change;
+//          the first time, the gates of the presets file's slots become sequences (slot n = sequence n).
 //
 // inlet 0:
 //   steps n         number of steps (gates beyond are deleted / cut, new steps get skip 1)
 //   buffer name     buffer~ to write the gate table into
 //   gates ...       set everything (stored format), no output
-//   clear           delete all gates, reset skips
+//   clear           empty the current sequence (gates, skips, full range; the step count stays)
+//   clearall        empty all 32 sequences
+//   seq n           sequence 0..31 (at the phasor wrap while the engine runs)
+//   seqstep d       the sequence d up / down (from a waiting one), 0..31 without wrapping
+//   copyseq / pasteseq   copy the current sequence / replace the current sequence with the copy
+//   seqname name    the instance name: reads (or migrates) the sequences file
+//   bankis b        the engine's playing bank (from gen~ out5)
+//   dsp 0|1         audio on / off (off: sequences switch at once)
 //   bang            output the stored list
 //   labelwidth n    width of the lane-label column in pixels
 // inlet 1:
 //   int             current step (playhead)
 // outlet 0: stored list after each edit; 'needbuffer' at load (answer with: buffer <name>);
-//           'range start end' (0-based steps) for the gen~ engine
+//           'range start end' (0-based steps); 'engine pendbank b' / 'engine swapnow k' (to gen~);
+//           'stepsis n' and 'seqis n' (1..32) for the boxes
+// pattr value: -5 sequence (older presets: the stored list below; after the migration it is ignored)
 //
 // stored list: -3 n rstart rend  skip_1 .. skip_n  then per gate: start span fill prob ratch vel duty delay
 //   (-3 = format version; -2 = same without the range; no marker = old 7-field format, delay 0)
 //
-// buffer~ layout (frame = step, 9 channels):
+// buffer~ layout (frame = bank * 64 + step, 9 channels; meta at frame 128 + bank: steps, range start,
+//   range end in channels 1-3):
 //   1 played length in steps after delay/trim (0 = no gate starts here)
 //   2 prob  3 ratchets  4 velocity  5 duty
 //   6 reverse lookup: (start step + 1) of the gate whose played end falls in this step
@@ -62,12 +77,27 @@ var MAXSTEPS = 64;
 var NCH = 9;
 var NFIELDS = 8;
 var FORMAT = 3;
+var NSEQ = 32;
+var BANKF = 64;      // gate-table frames per bank
+var METABASE = 128;  // frame METABASE + bank: steps, range start, range end
+var PREFIX = 'uGATE';
 
 // --- state -------------------------------------------------
 var n = 16;
 var skips = [];        // per step, 0..1 (1 = always played)
 var gates = [];        // {s, span, f, p, r, v, d, dl}
 var playhead = -1;
+var seqs = [];         // the 32 sequences as stored lists (null = empty)
+var cur = 0;           // the shown sequence, which plays from bank 'bank'
+var bank = 0;
+var pend = -1;         // a sequence written to the other bank, waiting for the engine's swap
+var queued = -1;       // a selection made while a swap is not confirmed yet
+var swapCount = 0;
+var dspOn = 1;
+var clip = null;
+var seqName = '';
+var seqsLoaded = false;
+for (var si = 0; si < NSEQ; si++) seqs.push(null);
 var labelW = 44;
 var bufName = '';
 var rStart = 0;        // play range, first step (0-based)
@@ -240,10 +270,16 @@ fitToSteps.local = 1;
 
 // --- buffer~ -----------------------------------------------
 function writeBuffer() {
+	writeNotes(bank);
+}
+writeBuffer.local = 1;
+
+// the gate table of the current state into bank bk, with its meta
+function writeNotes(bk) {
 	if (!bufName) return;
 	var buf = new Buffer(bufName);
-	if (buf.framecount() < MAXSTEPS || buf.channelcount() < NCH) {
-		post('dingus.gateRoll: buffer~ ' + bufName + ' needs ' + MAXSTEPS + ' samples and ' + NCH + ' channels\n');
+	if (buf.framecount() < METABASE + 2 || buf.channelcount() < NCH) {
+		post('dingus.gateRoll: buffer~ ' + bufName + ' needs ' + (METABASE + 2) + ' samples and ' + NCH + ' channels\n');
 		return;
 	}
 	var cols = [];
@@ -270,9 +306,12 @@ function writeBuffer() {
 			cols[6][last] = Math.ceil(e - 1e-9) - e;
 		}
 	}
-	for (c = 0; c < NCH; c++) buf.poke(c + 1, 0, cols[c]);
+	for (c = 0; c < NCH; c++) buf.poke(c + 1, bk * BANKF, cols[c]);
+	buf.poke(1, METABASE + bk, [n]);
+	buf.poke(2, METABASE + bk, [rStart]);
+	buf.poke(3, METABASE + bk, [rEnd]);
 }
-writeBuffer.local = 1;
+writeNotes.local = 1;
 
 // --- serialization -----------------------------------------
 function flat() {
@@ -328,7 +367,9 @@ unflat.local = 1;
 var keep = new Global("dingusGateRollState");
 
 function park() {
-	if (bufName) keep[bufName] = flat();
+	if (!bufName) return;
+	keep[bufName] = flat();
+	keep[bufName + ' seqs'] = { seqs: seqs.slice(), cur: cur, bank: bank, loaded: seqsLoaded, name: seqName };
 }
 park.local = 1;
 
@@ -346,9 +387,12 @@ sendRange.local = 1;
 function changed(out) {
 	sortGates();
 	clampRange();
+	seqs[cur] = flat();
 	park();
 	writeBuffer();
 	sendRange();
+	outlet(0, "stepsis", n);
+	scheduleSave();
 	mgraphics.redraw();
 	notifyclients();
 	if (out) outlet(0, flat());
@@ -513,6 +557,16 @@ function paint() {
 	g.set_source_rgba(0.85, 0.83, 0.78, 1);
 	g.move_to(6, h - 2);
 	g.show_text("RANGE");
+	// the shown sequence, and the one waiting for the phasor wrap
+	var nx = queued >= 0 ? queued : pend;
+	g.set_font_size(9);
+	g.set_source_rgba(0.85, 0.83, 0.78, 1);
+	g.move_to(3, HEADER - 3);
+	g.show_text('S' + (cur + 1));
+	if (nx >= 0) {
+		g.set_source_rgba(0.98, 0.45, 0.10, 1);
+		g.show_text('>' + (nx + 1));
+	}
 	g.set_font_size(10);
 	g.set_font_size(10);
 	for (i = 0; i < rs.length; i++) {
@@ -566,6 +620,14 @@ function steps(v) {
 function buffer(name) {
 	bufName = String(name);
 	var st = keep[bufName];
+	var ks = keep[bufName + ' seqs'];
+	if (ks && ks.seqs && ks.seqs.length === NSEQ) {
+		seqs = ks.seqs.slice();
+		cur = ks.cur;
+		bank = ks.bank;
+		seqsLoaded = ks.loaded;
+		seqName = ks.name || '';
+	}
 	if (!gates.length && st && st.length) {
 		// fresh after a script reload: bring the pattern back
 		unflat(st);
@@ -585,11 +647,242 @@ function anything() {
 	}
 }
 
+// clear: the current sequence (gates, skips, full range; the step count stays)
 function clear() {
+	emptyState();
+	changed(true);
+}
+
+// clear all: all 32 sequences
+function clearall() {
+	for (var i = 0; i < NSEQ; i++) seqs[i] = null;
+	emptyState();
+	changed(true);
+}
+
+function emptyState() {
 	gates = [];
 	skips = [];
 	fillSkips();
+	rStart = 0;
+	rEnd = n - 1;
+}
+emptyState.local = 1;
+
+// --- sequences ---------------------------------------------
+function loadSeq(a) {
+	if (a && a.length) unflat(a);
+	else emptyState();
+}
+loadSeq.local = 1;
+
+// run fn with sequence a as the current state, then restore the current state
+function withSeq(a, fn) {
+	var save = flat();
+	loadSeq(a);
+	fn();
+	unflat(save);
+}
+withSeq.local = 1;
+
+function seq(v) {
+	var k = Math.max(0, Math.min(NSEQ - 1, Math.round(v) || 0));
+	outlet(0, 'seqis', k + 1);
+	if (pend >= 0) {
+		// a swap is under way: this choice waits for its confirmation
+		queued = (k === pend) ? -1 : k;
+		mgraphics.redraw();
+		return;
+	}
+	queued = -1;
+	if (k === cur) {
+		mgraphics.redraw();
+		return;
+	}
+	var ob = 1 - bank;
+	withSeq(seqs[k], function () {
+		writeNotes(ob);
+	});
+	if (!dspOn) {
+		// no audio, no confirmation: switch here; the engine takes the bank when audio starts
+		swapCount++;
+		outlet(0, 'engine', 'pendbank', ob);
+		outlet(0, 'engine', 'swapnow', swapCount);
+		cur = k;
+		bank = ob;
+		loadSeq(seqs[cur]);
+		afterSwitch();
+		return;
+	}
+	pend = k;
+	outlet(0, 'engine', 'pendbank', ob);
+	park();
+	mgraphics.redraw();
+}
+
+function seqstep(d) {
+	var from = queued >= 0 ? queued : (pend >= 0 ? pend : cur);
+	var k = Math.max(0, Math.min(NSEQ - 1, from + (Math.round(d) || 0)));
+	if (k !== from) seq(k);
+}
+
+// the engine's playing bank (gen~ out5, through snapshot~ and change)
+function bankis(b) {
+	b = Math.round(b);
+	if (pend >= 0 && b === 1 - bank) {
+		cur = pend;
+		bank = b;
+		pend = -1;
+		loadSeq(seqs[cur]);
+		afterSwitch();
+		if (queued >= 0) {
+			var q = queued;
+			queued = -1;
+			seq(q);
+		}
+	} else if (pend < 0 && b !== bank) {
+		// out of step (for example after a reload): the current sequence into the playing bank
+		bank = b;
+		changed(false);
+	}
+}
+
+function dsp(on) {
+	dspOn = on ? 1 : 0;
+}
+
+function afterSwitch() {
+	park();
+	sendRange();
+	outlet(0, 'stepsis', n);
+	outlet(0, 'seqis', cur + 1);
+	mgraphics.redraw();
+	notifyclients();
+	scheduleSave();
+}
+afterSwitch.local = 1;
+
+function copyseq() {
+	clip = flat();
+}
+
+function pasteseq() {
+	if (!clip) return;
+	unflat(clip);
 	changed(true);
+}
+
+// --- sequences file ----------------------------------------
+var paths = require('dingus.paths.js');
+
+function folder() {
+	return paths.presetFolder(this.patcher);
+}
+folder.local = 1;
+
+function seqPath() {
+	var f = folder();
+	return f && seqName ? f + PREFIX + 'seq_' + seqName + '.json' : '';
+}
+seqPath.local = 1;
+
+function readJSON(p) {
+	if (!p) return null;
+	try {
+		var f = new File(p, 'read');
+		if (!f.isopen) return null;
+		var txt = '';
+		while (f.position < f.eof) txt += f.readstring(4096);
+		f.close();
+		return JSON.parse(txt);
+	} catch (e) {
+		return null;
+	}
+}
+readJSON.local = 1;
+
+var saveTask = new Task(saveSeqs, this);
+
+function scheduleSave() {
+	if (seqsLoaded && seqName) saveTask.schedule(300);
+}
+scheduleSave.local = 1;
+
+function saveSeqs() {
+	var p = seqPath();
+	if (!p) return;
+	seqs[cur] = flat();
+	try {
+		var txt = JSON.stringify({ format: 1, current: cur, seqs: seqs });
+		var f = new File(p, 'write', 'TEXT');
+		if (!f.isopen) throw new Error('not open');
+		for (var i = 0; i < txt.length; i += 4096) f.writestring(txt.substring(i, i + 4096));
+		f.eof = f.position;
+		f.close();
+	} catch (e) {
+		post('dingus.gateRoll: can\'t write ' + p + '\n');
+	}
+}
+saveSeqs.local = 1;
+
+// any stored format into the current one
+function normalized(a) {
+	if (!a || !a.length) return null;
+	var out = null;
+	withSeq(a, function () {
+		out = flat();
+	});
+	return out;
+}
+normalized.local = 1;
+
+// first time: the gates of the presets file's slots become sequences (slot n = sequence n,
+// slots above 32 fill the first empty ones); without them, the current gates become sequence 1
+function migrate() {
+	var f = folder();
+	var o = f ? readJSON(f + PREFIX + '_' + seqName + '.json') : null;
+	var slots = o && o.pattrstorage && o.pattrstorage.slots ? o.pattrstorage.slots : null;
+	var found = 0, rest = [];
+	if (slots) {
+		var ids = Object.keys(slots).map(Number).sort(function (x, y) { return x - y; });
+		for (var i = 0; i < ids.length; i++) {
+			var d = slots[ids[i]] && slots[ids[i]].data;
+			var a = d ? normalized(d.gateroll) : null;
+			if (!a) continue;
+			if (ids[i] >= 1 && ids[i] <= NSEQ) seqs[ids[i] - 1] = a;
+			else rest.push(a);
+			found++;
+		}
+		for (var r = 0, k = 0; r < rest.length && k < NSEQ; k++) {
+			if (!seqs[k]) seqs[k] = rest[r++];
+		}
+	}
+	if (!found) seqs[0] = flat();
+	cur = 0;
+	post('dingus.gateRoll: ' + (found ? found + ' preset slots became sequences' : 'the current gates became sequence 1') + ', saved to ' + seqPath() + '\n');
+}
+migrate.local = 1;
+
+function seqname(nm) {
+	var name = String(nm);
+	if (seqsLoaded && name === seqName) return;
+	seqName = name;
+	var o = readJSON(seqPath());
+	var fresh = false;
+	if (o && o.seqs) {
+		for (var i = 0; i < NSEQ; i++) seqs[i] = (o.seqs[i] && o.seqs[i].length) ? o.seqs[i] : null;
+		cur = Math.max(0, Math.min(NSEQ - 1, Math.round(o.current) || 0));
+	} else {
+		migrate();
+		fresh = true;
+	}
+	seqsLoaded = true;
+	pend = -1;
+	queued = -1;
+	loadSeq(seqs[cur]);
+	writeBuffer();
+	afterSwitch();
+	if (fresh) saveSeqs();
 }
 
 function bang() {
@@ -827,11 +1120,19 @@ function copySkips(dr, s, span) {
 copySkips.local = 1;
 
 // --- pattr -------------------------------------------------
+// presets keep the sequence number (the sequences are in their own file)
 function getvalueof() {
-	return flat();
+	return [-5, cur];
 }
 
 function setvalueof() {
-	unflat(arrayfromargs(arguments));
-	changed(false);
+	var a = arrayfromargs(arguments);
+	if (!a.length) return;
+	if (a[0] === -5) {
+		seq(a[1]);
+	} else if (!seqsLoaded) {
+		// an older preset before the migration: its gates
+		unflat(a);
+		changed(false);
+	}
 }
