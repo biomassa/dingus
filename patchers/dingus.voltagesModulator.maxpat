@@ -121,24 +121,6 @@
 			},
 			{
 				"box": {
-					"id": "obj-4",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"outlettype": [
-						"signal"
-					],
-					"patching_rect": [
-						1250.0,
-						40.0,
-						31.0,
-						22.0
-					],
-					"text": "sig~"
-				}
-			},
-			{
-				"box": {
 					"id": "obj-11",
 					"maxclass": "newobj",
 					"numinlets": 2,
@@ -961,28 +943,6 @@
 			},
 			{
 				"box": {
-					"id": "obj-88",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 4,
-					"outlettype": [
-						"",
-						"int",
-						"float",
-						""
-					],
-					"patching_rect": [
-						20.0,
-						335.0,
-						343.0,
-						22.0
-					],
-					"text": "dingus.sequencedata~",
-					"varname": "tmp_seq"
-				}
-			},
-			{
-				"box": {
 					"ghostbar": 50,
 					"id": "obj-89",
 					"maxclass": "multislider",
@@ -1309,7 +1269,7 @@
 			},
 			{
 				"box": {
-					"comment": "isRunning",
+					"comment": "isRunning: 1 = run (from the first step), 0 = stop",
 					"id": "obj-47",
 					"index": 0,
 					"maxclass": "inlet",
@@ -1361,25 +1321,6 @@
 						30.0,
 						30.0
 					]
-				}
-			},
-			{
-				"box": {
-					"id": "obj-vpg",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"outlettype": [
-						"signal"
-					],
-					"patching_rect": [
-						20.0,
-						285.0,
-						40.0,
-						22.0
-					],
-					"text": "*~ 1",
-					"varname": "tmp_gate"
 				}
 			},
 			{
@@ -3766,6 +3707,1116 @@
 					],
 					"text": "routepass slotlist"
 				}
+			},
+			{
+				"box": {
+					"id": "vm_buf",
+					"maxclass": "newobj",
+					"text": "buffer~ #0-volt @samps 256 @chans 3",
+					"patching_rect": [
+						1700.0,
+						40.0,
+						240.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 2,
+					"outlettype": [
+						"float",
+						"bang"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_gen",
+					"maxclass": "newobj",
+					"text": "gen~",
+					"varname": "vmgen",
+					"patching_rect": [
+						1700.0,
+						300.0,
+						300.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 4,
+					"outlettype": [
+						"signal",
+						"signal",
+						"signal",
+						"signal"
+					],
+					"patcher": {
+						"fileversion": 1,
+						"appversion": {
+							"major": 9,
+							"minor": 2,
+							"revision": 0,
+							"architecture": "x64",
+							"modernui": 1
+						},
+						"classnamespace": "dsp.gen",
+						"rect": [
+							100.0,
+							100.0,
+							700.0,
+							700.0
+						],
+						"integercoordinates": 1,
+						"boxes": [
+							{
+								"box": {
+									"id": "gin1",
+									"maxclass": "newobj",
+									"numinlets": 0,
+									"numoutlets": 1,
+									"outlettype": [
+										""
+									],
+									"patching_rect": [
+										20.0,
+										14.0,
+										40.0,
+										22.0
+									],
+									"text": "in 1"
+								}
+							},
+							{
+								"box": {
+									"id": "gin2",
+									"maxclass": "newobj",
+									"numinlets": 0,
+									"numoutlets": 1,
+									"outlettype": [
+										""
+									],
+									"patching_rect": [
+										130.0,
+										14.0,
+										40.0,
+										22.0
+									],
+									"text": "in 2"
+								}
+							},
+							{
+								"box": {
+									"id": "gcode",
+									"maxclass": "codebox",
+									"fontface": 0,
+									"fontname": "<Monospaced>",
+									"fontsize": 12.0,
+									"numinlets": 2,
+									"numoutlets": 4,
+									"outlettype": [
+										"",
+										"",
+										"",
+										""
+									],
+									"patching_rect": [
+										20.0,
+										50.0,
+										640.0,
+										560.0
+									],
+									"code": "// voltages engine: steps from the phasor, values from the tables (dingus.voltBank.js)\n// in1 phasor (one cycle = whole loop)  in2 step reset (click)\n// run 0|1 (the isRunning inlet): 0 stops the steps (the value holds); 1 runs again from the first step\n// out1 value (held between steps)  out2 current step  out3 the bank that plays (0 / 1)\n// out4 1 for one sample when a step sends its value (for the message outlet)\n// tables: frame = bank * 64 + step: ch 0 value, ch 1 skip (chance the step plays; 0 outside the range,\n//   raised so the highest in the range is 1), ch 2 rest (chance the step sends its value);\n//   meta at frame 128 + bank: ch 0 steps, ch 1 range start, ch 2 range end.\n// skip: a step that fails is passed over on the same pulse; rest: the step counts but the value holds.\n// pendbank = the bank of a waiting sequence (-1 none): it takes over at the phasor wrap, at once when the\n//   clock stands still (0.1 s) or play is off, or when swapnow changes. It starts at its first step.\nBuffer vb(\"dingus-volt-none\");\nParam dir(0, min=0, max=2);\nParam play(1, min=0, max=1);\nParam run(1, min=0, max=1);\nParam pendbank(-1, min=-1, max=1);\nParam swapnow(0);\n\nHistory prevsub(0);\nHistory cur(-1);\nHistory rst(0);\nHistory val(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\nHistory prevrun(1);\n\nemit = 0;\nnxt = 0;\nok = 0;\ni = 0;\ntries = 0;\nrunning = play > 0 && run > 0;\n\nif (in2 > 0 || (run > 0 && prevrun <= 0)) {\n\trst = 1;\n}\nprevrun = run;\n\n// bank swap, before anything reads the tables of this sample\nwrapped = (in1 - pph) < -0.5;\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pendbank >= 0 && pendbank != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || running == 0)) {\n\tbk = pendbank;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 64;\nmb = 128 + bk;\nn = clamp(peek(vb, mb, 0), 1, 64);\nlo = clamp(peek(vb, mb, 1), 0, n - 1);\nhi = clamp(peek(vb, mb, 2), lo, n - 1);\nspan = hi - lo + 1;\n\n// position inside the current step\npos = in1 * n;\nsub = pos - floor(pos);\nnewstep = (sub - prevsub) < -0.5;\nprevsub = sub;\n\nif (newstep && running) {\n\t// the next step by direction, then its skip roll; a failed roll moves on (same pulse)\n\tif (rst > 0) {\n\t\tnxt = (dir == 1) ? hi : lo;\n\t\trst = 0;\n\t} else if (dir == 0) {\n\t\tnxt = (cur + 1 > hi || cur + 1 < lo) ? lo : cur + 1;\n\t} else if (dir == 1) {\n\t\tnxt = (cur - 1 < lo || cur - 1 > hi) ? hi : cur - 1;\n\t} else {\n\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), span - 1);\n\t}\n\tfor (i = 0; i < 4 * n; i += 1) {\n\t\tif (noise() * 0.5 + 0.5 < peek(vb, nb + nxt, 1)) {\n\t\t\tok = 1;\n\t\t\tbreak;\n\t\t}\n\t\tif (dir == 0) {\n\t\t\tnxt = (nxt + 1 > hi) ? lo : nxt + 1;\n\t\t} else if (dir == 1) {\n\t\t\tnxt = (nxt - 1 < lo) ? hi : nxt - 1;\n\t\t} else {\n\t\t\tnxt = lo + min(floor((noise() * 0.5 + 0.5) * span), span - 1);\n\t\t}\n\t}\n\tif (ok > 0) {\n\t\tcur = nxt;\n\t\t// rest roll: the step counts, the value holds when it fails\n\t\tif (noise() * 0.5 + 0.5 < peek(vb, nb + nxt, 2)) {\n\t\t\tval = peek(vb, nb + nxt, 0);\n\t\t\temit = 1;\n\t\t}\n\t}\n}\n\nout1 = val;\nout2 = cur;\nout3 = bk;\nout4 = emit;\n"
+								}
+							},
+							{
+								"box": {
+									"id": "gout1",
+									"maxclass": "newobj",
+									"numinlets": 1,
+									"numoutlets": 0,
+									"patching_rect": [
+										20.0,
+										630.0,
+										45.0,
+										22.0
+									],
+									"text": "out 1"
+								}
+							},
+							{
+								"box": {
+									"id": "gout2",
+									"maxclass": "newobj",
+									"numinlets": 1,
+									"numoutlets": 0,
+									"patching_rect": [
+										140.0,
+										630.0,
+										45.0,
+										22.0
+									],
+									"text": "out 2"
+								}
+							},
+							{
+								"box": {
+									"id": "gout3",
+									"maxclass": "newobj",
+									"numinlets": 1,
+									"numoutlets": 0,
+									"patching_rect": [
+										260.0,
+										630.0,
+										45.0,
+										22.0
+									],
+									"text": "out 3"
+								}
+							},
+							{
+								"box": {
+									"id": "gout4",
+									"maxclass": "newobj",
+									"numinlets": 1,
+									"numoutlets": 0,
+									"patching_rect": [
+										380.0,
+										630.0,
+										45.0,
+										22.0
+									],
+									"text": "out 4"
+								}
+							}
+						],
+						"lines": [
+							{
+								"patchline": {
+									"source": [
+										"gin1",
+										0
+									],
+									"destination": [
+										"gcode",
+										0
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gin2",
+										0
+									],
+									"destination": [
+										"gcode",
+										1
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gcode",
+										0
+									],
+									"destination": [
+										"gout1",
+										0
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gcode",
+										1
+									],
+									"destination": [
+										"gout2",
+										0
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gcode",
+										2
+									],
+									"destination": [
+										"gout3",
+										0
+									]
+								}
+							},
+							{
+								"patchline": {
+									"source": [
+										"gcode",
+										3
+									],
+									"destination": [
+										"gout4",
+										0
+									]
+								}
+							}
+						]
+					}
+				}
+			},
+			{
+				"box": {
+					"id": "vm_click",
+					"maxclass": "newobj",
+					"text": "click~",
+					"patching_rect": [
+						1800.0,
+						240.0,
+						50.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"signal"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bufm",
+					"maxclass": "message",
+					"text": "vb #0-volt",
+					"patching_rect": [
+						1960.0,
+						70.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_pplay",
+					"maxclass": "newobj",
+					"text": "prepend play",
+					"patching_rect": [
+						1700.0,
+						240.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_pdir",
+					"maxclass": "newobj",
+					"text": "prepend dir",
+					"patching_rect": [
+						1870.0,
+						240.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_edge",
+					"maxclass": "newobj",
+					"text": "edge~",
+					"patching_rect": [
+						1700.0,
+						360.0,
+						45.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 2,
+					"outlettype": [
+						"bang",
+						"bang"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_vsnap",
+					"maxclass": "newobj",
+					"text": "snapshot~",
+					"patching_rect": [
+						1700.0,
+						390.0,
+						70.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"float"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_ssnap",
+					"maxclass": "newobj",
+					"text": "snapshot~ 20",
+					"patching_rect": [
+						1800.0,
+						360.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"float"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_schg",
+					"maxclass": "newobj",
+					"text": "change",
+					"patching_rect": [
+						1800.0,
+						390.0,
+						50.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"int",
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_sint",
+					"maxclass": "newobj",
+					"text": "i",
+					"patching_rect": [
+						1800.0,
+						420.0,
+						30.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bsnap",
+					"maxclass": "newobj",
+					"text": "snapshot~ 20",
+					"patching_rect": [
+						1900.0,
+						360.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"float"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bchg",
+					"maxclass": "newobj",
+					"text": "change",
+					"patching_rect": [
+						1900.0,
+						390.0,
+						50.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"int",
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bpp",
+					"maxclass": "newobj",
+					"text": "prepend bankis",
+					"patching_rect": [
+						1900.0,
+						420.0,
+						100.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bank",
+					"maxclass": "newobj",
+					"text": "v8 dingus.voltBank.js",
+					"patching_rect": [
+						1700.0,
+						480.0,
+						150.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_dsp",
+					"maxclass": "newobj",
+					"text": "dspstate~",
+					"patching_rect": [
+						2020.0,
+						420.0,
+						70.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 4,
+					"outlettype": [
+						"int",
+						"float",
+						"int",
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_dsppp",
+					"maxclass": "newobj",
+					"text": "prepend dsp",
+					"patching_rect": [
+						2020.0,
+						450.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_pvals",
+					"maxclass": "newobj",
+					"text": "prepend vals",
+					"patching_rect": [
+						2100.0,
+						120.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_prest",
+					"maxclass": "newobj",
+					"text": "prepend rest",
+					"patching_rect": [
+						2190.0,
+						120.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_pskip",
+					"maxclass": "newobj",
+					"text": "prepend skip",
+					"patching_rect": [
+						2280.0,
+						120.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_psteps",
+					"maxclass": "newobj",
+					"text": "prepend steps",
+					"patching_rect": [
+						2100.0,
+						160.0,
+						90.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_rt",
+					"maxclass": "newobj",
+					"text": "route needbuffer engine msv msr mss rsl grid stepsis seqis",
+					"patching_rect": [
+						1700.0,
+						520.0,
+						400.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 10,
+					"outlettype": [
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						"",
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_bufui",
+					"maxclass": "message",
+					"text": "buffer #0-volt, seqname #1",
+					"patching_rect": [
+						1700.0,
+						560.0,
+						180.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_setst",
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"patching_rect": [
+						1900.0,
+						560.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_setsq",
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"patching_rect": [
+						1990.0,
+						560.0,
+						75.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_seqc",
+					"maxclass": "comment",
+					"text": "seq",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						1700.0,
+						620.0,
+						30.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0.0,
+						172.0,
+						30.0,
+						20.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_seqbox",
+					"maxclass": "number",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"outlettype": [
+						"",
+						"bang"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						1700.0,
+						644.0,
+						50.0,
+						22.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32.0,
+						172.0,
+						40.0,
+						22.0
+					],
+					"varname": "vm_seq",
+					"minimum": 1,
+					"maximum": 32
+				}
+			},
+			{
+				"box": {
+					"id": "vm_m1",
+					"maxclass": "newobj",
+					"text": "- 1",
+					"patching_rect": [
+						1700.0,
+						680.0,
+						40.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						"int"
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_pseq",
+					"maxclass": "newobj",
+					"text": "prepend seq",
+					"patching_rect": [
+						1700.0,
+						710.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_minus",
+					"maxclass": "textbutton",
+					"text": "-",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						1790.0,
+						644.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						76.0,
+						172.0,
+						22.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_minus_m",
+					"maxclass": "message",
+					"text": "seqstep -1",
+					"patching_rect": [
+						1790.0,
+						680.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_plus",
+					"maxclass": "textbutton",
+					"text": "+",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						1860.0,
+						644.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						100.0,
+						172.0,
+						22.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_plus_m",
+					"maxclass": "message",
+					"text": "seqstep 1",
+					"patching_rect": [
+						1860.0,
+						680.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_copy",
+					"maxclass": "textbutton",
+					"text": "copy",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						1930.0,
+						644.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						128.0,
+						172.0,
+						52.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_copy_m",
+					"maxclass": "message",
+					"text": "copyseq",
+					"patching_rect": [
+						1930.0,
+						680.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_paste",
+					"maxclass": "textbutton",
+					"text": "paste",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						2000.0,
+						644.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						184.0,
+						172.0,
+						54.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_paste_m",
+					"maxclass": "message",
+					"text": "pasteseq",
+					"patching_rect": [
+						2000.0,
+						680.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_clear",
+					"maxclass": "textbutton",
+					"text": "clear",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						2070.0,
+						644.0,
+						50.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						242.0,
+						172.0,
+						50.0,
+						22.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_clear_m",
+					"maxclass": "message",
+					"text": "clear",
+					"patching_rect": [
+						2070.0,
+						680.0,
+						66.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_clearall",
+					"maxclass": "textbutton",
+					"text": "clear all",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"int"
+					],
+					"parameter_enable": 0,
+					"patching_rect": [
+						2160.0,
+						644.0,
+						70.0,
+						20.0
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						296.0,
+						172.0,
+						70.0,
+						22.0
+					],
+					"textoncolor": [
+						1.0,
+						0.345,
+						0.345,
+						1.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_dlg",
+					"maxclass": "newobj",
+					"text": "dialog @mode 2 @label \"Empty all 32 sequences?\"",
+					"patching_rect": [
+						2160.0,
+						680.0,
+						300.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_clearall_m",
+					"maxclass": "message",
+					"text": "clearall",
+					"patching_rect": [
+						2160.0,
+						710.0,
+						60.0,
+						22.0
+					],
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_in",
+					"maxclass": "inlet",
+					"comment": "sequence 1-32 (takes over at the phasor wrap)",
+					"index": 0,
+					"numinlets": 0,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						700.0,
+						40.0,
+						30.0,
+						30.0
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "vm_prun",
+					"maxclass": "newobj",
+					"text": "prepend run",
+					"patching_rect": [
+						1960.0,
+						240.0,
+						80.0,
+						22.0
+					],
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					]
+				}
 			}
 		],
 		"lines": [
@@ -3789,42 +4840,6 @@
 					],
 					"source": [
 						"obj-11",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-164",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-204",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-205",
 						0
 					]
 				}
@@ -3932,18 +4947,6 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-3",
-						0
-					],
-					"source": [
-						"obj-4",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-38",
 						1
 					],
@@ -3961,18 +4964,6 @@
 					],
 					"source": [
 						"obj-40",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-42",
 						0
 					]
 				}
@@ -4078,35 +5069,10 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-66",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-62",
 						0
 					],
 					"order": 0,
-					"source": [
-						"obj-67",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-vpg",
-						0
-					],
-					"order": 1,
 					"source": [
 						"obj-67",
 						0
@@ -4142,18 +5108,6 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-66",
-						0
-					],
-					"source": [
-						"obj-70",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-205",
 						0
 					],
@@ -4173,84 +5127,6 @@
 					"order": 1,
 					"source": [
 						"obj-75",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-11",
-						0
-					],
-					"order": 0,
-					"source": [
-						"obj-88",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-4",
-						0
-					],
-					"order": 1,
-					"source": [
-						"obj-88",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-6",
-						2
-					],
-					"order": 0,
-					"source": [
-						"obj-88",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-86",
-						0
-					],
-					"order": 2,
-					"source": [
-						"obj-88",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-90",
-						0
-					],
-					"order": 1,
-					"source": [
-						"obj-88",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-88",
-						0
-					],
-					"order": 1,
-					"source": [
-						"obj-89",
 						0
 					]
 				}
@@ -4451,45 +5327,6 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-vd100",
-						0
-					],
-					"order": 1,
-					"source": [
-						"obj-vlb",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-vd150",
-						0
-					],
-					"order": 0,
-					"source": [
-						"obj-vlb",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-vd50",
-						0
-					],
-					"order": 2,
-					"source": [
-						"obj-vlb",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-40",
 						0
 					],
@@ -4540,30 +5377,6 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-88",
-						0
-					],
-					"source": [
-						"obj-vpg",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-vpg",
-						1
-					],
-					"source": [
-						"obj-vpp",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-PpresetLogic",
 						0
 					],
@@ -4605,18 +5418,6 @@
 					],
 					"destination": [
 						"def-m0",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"def-m0",
-						0
-					],
-					"destination": [
-						"obj-33",
 						0
 					]
 				}
@@ -4689,6 +5490,846 @@
 					],
 					"source": [
 						"obj-vjs_slotfilter",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-56",
+						0
+					],
+					"destination": [
+						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_click",
+						0
+					],
+					"destination": [
+						"vm_gen",
+						1
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-vlb",
+						0
+					],
+					"destination": [
+						"vm_bufm",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bufm",
+						0
+					],
+					"destination": [
+						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-vpp",
+						0
+					],
+					"destination": [
+						"vm_pplay",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_pplay",
+						0
+					],
+					"destination": [
+						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-39",
+						0
+					],
+					"destination": [
+						"vm_pdir",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_pdir",
+						0
+					],
+					"destination": [
+						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_gen",
+						0
+					],
+					"destination": [
+						"obj-3",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_gen",
+						3
+					],
+					"destination": [
+						"vm_edge",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_gen",
+						0
+					],
+					"destination": [
+						"vm_vsnap",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_edge",
+						0
+					],
+					"destination": [
+						"vm_vsnap",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_vsnap",
+						0
+					],
+					"destination": [
+						"obj-6",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_gen",
+						1
+					],
+					"destination": [
+						"vm_ssnap",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_ssnap",
+						0
+					],
+					"destination": [
+						"vm_schg",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_schg",
+						0
+					],
+					"destination": [
+						"vm_sint",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_sint",
+						0
+					],
+					"destination": [
+						"obj-90",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_sint",
+						0
+					],
+					"destination": [
+						"obj-86",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_gen",
+						2
+					],
+					"destination": [
+						"vm_bsnap",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bsnap",
+						0
+					],
+					"destination": [
+						"vm_bchg",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bchg",
+						0
+					],
+					"destination": [
+						"vm_bpp",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bpp",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_dsp",
+						0
+					],
+					"destination": [
+						"vm_dsppp",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_dsppp",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-89",
+						0
+					],
+					"destination": [
+						"vm_pvals",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_pvals",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-75",
+						0
+					],
+					"destination": [
+						"vm_prest",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_prest",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-32",
+						0
+					],
+					"destination": [
+						"vm_pskip",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_pskip",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-42",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-33",
+						0
+					],
+					"destination": [
+						"vm_psteps",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_psteps",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bank",
+						0
+					],
+					"destination": [
+						"vm_rt",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						0
+					],
+					"destination": [
+						"vm_bufui",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_bufui",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						1
+					],
+					"destination": [
+						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						2
+					],
+					"destination": [
+						"obj-89",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						3
+					],
+					"destination": [
+						"obj-75",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						4
+					],
+					"destination": [
+						"obj-32",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						5
+					],
+					"destination": [
+						"obj-40",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						6
+					],
+					"destination": [
+						"obj-87",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						7
+					],
+					"destination": [
+						"vm_setst",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_setst",
+						0
+					],
+					"destination": [
+						"obj-33",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_rt",
+						8
+					],
+					"destination": [
+						"vm_setsq",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_setsq",
+						0
+					],
+					"destination": [
+						"vm_seqbox",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_seqbox",
+						0
+					],
+					"destination": [
+						"vm_m1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_m1",
+						0
+					],
+					"destination": [
+						"vm_pseq",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_pseq",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_minus",
+						0
+					],
+					"destination": [
+						"vm_minus_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_minus_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_plus",
+						0
+					],
+					"destination": [
+						"vm_plus_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_plus_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_copy",
+						0
+					],
+					"destination": [
+						"vm_copy_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_copy_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_paste",
+						0
+					],
+					"destination": [
+						"vm_paste_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_paste_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_clear",
+						0
+					],
+					"destination": [
+						"vm_clear_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_clear_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_clearall",
+						0
+					],
+					"destination": [
+						"vm_dlg",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_dlg",
+						0
+					],
+					"destination": [
+						"vm_clearall_m",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_clearall_m",
+						0
+					],
+					"destination": [
+						"vm_bank",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_in",
+						0
+					],
+					"destination": [
+						"vm_m1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-89",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-75",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-32",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-40",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-33",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-47",
+						0
+					],
+					"destination": [
+						"vm_prun",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_prun",
+						0
+					],
+					"destination": [
+						"vm_gen",
 						0
 					]
 				}

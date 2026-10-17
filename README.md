@@ -60,7 +60,7 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 | `dingus.pitchGateSeq` | A monophonic pitch and gate sequencer with a piano roll. The rows come from a Scala tuning. Each note has lanes for velocity, glide, ratchets, fade and duty. It has chance lanes, beats per step and a play range. It has 32 sequences. A new sequence starts at the next phasor wrap. | `uPG_<name>.json`, sequences in `uPGseq_<name>.json` |
 | `dingus.pitchSeq` | A step pitch sequencer for Scala tunings. It has a pitch grid, a delay for each step and a tuning slider. | `uPITCH_<name>.json` |
 | `dingus.gatesSeq` | A gate sequencer. A gate can span many steps. A lane sets the length of the last step of each gate. It has 32 sequences. A new sequence starts at the next phasor wrap. | `uGATE_<name>.json`, sequences in `uGATEseq_<name>.json` |
-| `dingus.voltagesModulator` | A stepped voltage modulator. | `uVOLT_<name>.json` |
+| `dingus.voltagesModulator` | A stepped voltage modulator with rest and skip probabilities, on a gen~ engine. It has 32 sequences. A new sequence starts at the next phasor wrap. The isRunning inlet takes a toggle: 0 stops, 1 starts from the first step. | `uVOLT_<name>.json`, sequences in `uVOLTseq_<name>.json` |
 | `dingus.masterClock` | The master phasor clock. It sends MIDI clock. Its clock modulation curve changes the tempo on purpose, for irregular clocks. | in the studio patch |
 | `dingus.subClocker` | A sub-clock from the master phasor, with its own clock modulation curve. | in the studio patch |
 | `dingus.lfoModulator` | An LFO that the phasor clock drives. It has resync and reset inputs. | in the studio patch |
@@ -96,6 +96,7 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 | `dingus.gateRoll.js` | The roll of `dingus.gatesSeq` (v8ui). |
 | `dingus.envNext.js` | Sends "next" to a `function` envelope at gate-off, but only if the envelope has a sustain point. |
 | `dingus.pitchGrid.js` | The pitch grid of `dingus.pitchSeq` (jsui). |
+| `dingus.voltBank.js` | The 32 sequences of `dingus.voltagesModulator` and the tables of its gen~ engine (v8). |
 | `dingus.pitchTiming.js` | The step delays and the deleted steps of `dingus.pitchSeq` (v8). |
 | `dingus.tuningSlider.js` | A key slider for Scala tunings in `dingus.pitchSeq`. This is `sslider.js` by Timo Hoogland. Refer to [Third-party notices](#third-party-notices). |
 
@@ -103,7 +104,7 @@ The file name is `<prefix>_<instance name>.json`, for example `uPG_lead.json`. T
 
 | Abstraction | Function |
 |---|---|
-| `dingus.sequencedata~` | The sequence data of `dingus.pitchSeq` and `dingus.voltagesModulator`. This is a corrected copy of `dk.sequencedata~` from Data Knot. Refer to [Third-party notices](#third-party-notices). |
+| `dingus.sequencedata~` | The sequence data of `dingus.pitchSeq`. This is a corrected copy of `dk.sequencedata~` from Data Knot. Refer to [Third-party notices](#third-party-notices). |
 | `dingus.clockThePam` | The clock output for Pamela's Workout. |
 | `dingus.clockExternalMidiDevice` | The MIDI clock for an external device. |
 | `dingus.es8InputsCompensation` | Compensation for the ES-8 inputs: 4 inputs, 1 output. |

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.pitchGateSeq`: a sequence that you choose while the clock runs takes over at the phasor wrap, sample-exact. It starts at its first step, and the PTN counter starts again. When the clock stops for 0.1 s, or audio or play is off, the sequence changes at once.
 - `dingus.pitchGateSeq`: all 32 sequences are in `uPGseq_<name>.json` in the presets folder. The first time, the notes of each slot in the presets file become a sequence (slot n = sequence n).
 - `dingus.gatesSeq`: the same 32 sequences, with the same controls, inlet and switch at the phasor wrap. A sequence has its gates, skips, play range and step count. The file is `uGATEseq_<name>.json`. A `clear all` button with confirmation is added.
+- `dingus.voltagesModulator`: the same 32 sequences, with the same controls and inlet. A sequence has its step count, voltages, rest and skip probabilities and play range. The file is `uVOLTseq_<name>.json`. The script `dingus.voltBank.js` keeps the sequences.
 
 ### Changed
 
@@ -21,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dingus.pitchGateSeq`: `clear all` empties all 32 sequences. It asks for confirmation first.
 - `dingus.pitchGateSeq`: the gen~ engine has two banks of note and chance tables and a sixth outlet (the bank that plays). The buffers have their size in samples.
 - `dingus.gatesSeq`: presets keep the sequence number, not the gates. The `steps` box is no longer in presets. The gen~ engine has two banks of gate tables and a fifth outlet (the bank that plays).
+- `dingus.voltagesModulator`: a gen~ engine replaces `dingus.sequencedata~`. The switch to a new sequence is sample-exact. Skip: only steps in the play range can play, and their skip values are raised so the highest is 1. The first outlet still sends a message for each step.
+- `dingus.voltagesModulator`: the isRunning inlet takes a toggle. 0 stops the sequence (the value holds). 1 starts it again from the first step.
+- `dingus.voltagesModulator`: presets keep the sequence number, rate, direction and output, not the step content.
 
 ## [0.1.0] - 2026-10-17
 
