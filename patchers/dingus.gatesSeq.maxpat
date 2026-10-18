@@ -1248,25 +1248,6 @@
 			},
 			{
 				"box": {
-					"id": "env-obj-7",
-					"maxclass": "button",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"outlettype": [
-						"bang"
-					],
-					"parameter_enable": 0,
-					"patching_rect": [
-						50.0,
-						745.0,
-						24.0,
-						24.0
-					],
-					"varname": "button"
-				}
-			},
-			{
-				"box": {
 					"autosustain": 2,
 					"classic_curve": 0,
 					"domain": 132.7433624267578,
@@ -3098,18 +3079,6 @@
 			{
 				"patchline": {
 					"destination": [
-						"env-obj-7",
-						0
-					],
-					"source": [
-						"env-obj-2",
-						3
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"env-obj-15",
 						0
 					],
@@ -3134,36 +3103,12 @@
 			{
 				"patchline": {
 					"destination": [
-						"env-obj-2",
-						0
-					],
-					"source": [
-						"env-obj-7",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"env-next",
 						0
 					],
 					"source": [
 						"env-obj-8",
 						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"env-obj-7",
-						0
-					],
-					"source": [
-						"env-obj-8",
-						0
 					]
 				}
 			},
@@ -4179,6 +4124,18 @@
 					],
 					"destination": [
 						"sw_box",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"env-obj-8",
+						0
+					],
+					"destination": [
+						"env-obj-2",
 						0
 					]
 				}

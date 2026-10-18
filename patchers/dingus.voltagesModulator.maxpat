@@ -65,7 +65,7 @@
 			},
 			{
 				"box": {
-					"comment": "resyncBang",
+					"comment": "rate~ reset (bang)",
 					"id": "obj-5",
 					"index": 0,
 					"maxclass": "inlet",
@@ -1083,7 +1083,8 @@
 						124.0,
 						74.0,
 						22.0
-					]
+					],
+					"varname": "direction"
 				}
 			},
 			{
@@ -4853,6 +4854,25 @@
 						""
 					]
 				}
+			},
+			{
+				"box": {
+					"id": "vm_reset_in",
+					"maxclass": "inlet",
+					"comment": "step reset (bang): the sequence starts again from its first step at the next step",
+					"index": 0,
+					"numinlets": 0,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						295.0,
+						40.0,
+						30.0,
+						30.0
+					]
+				}
 			}
 		],
 		"lines": [
@@ -6366,6 +6386,30 @@
 					],
 					"destination": [
 						"vm_gen",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"vm_reset_in",
+						0
+					],
+					"destination": [
+						"vm_click",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"obj-1",
+						1
+					],
+					"destination": [
+						"obj-87",
 						0
 					]
 				}

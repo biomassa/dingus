@@ -512,7 +512,8 @@
                         }
                     },
                     "textcolor": [ 1.0, 0.9137254901960784, 0.07450980392156863, 1.0 ],
-                    "varname": "umenu"
+                    "varname": "umenu",
+                    "pattrmode": 1
                 }
             },
             {
@@ -1047,7 +1048,8 @@
                     "parameter_enable": 0,
                     "patching_rect": [ 260.0, 165.0, 74.0, 22.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 70.0, 284.0, 74.0, 22.0 ]
+                    "presentation_rect": [ 70.0, 284.0, 74.0, 22.0 ],
+                    "varname": "direction"
                 }
             },
             {
@@ -1358,34 +1360,6 @@
                         "parameter_enable": 0
                     },
                     "text": "v8 dingus.presetFile.js uPITCH #1"
-                }
-            },
-            {
-                "box": {
-                    "id": "obj-sc2",
-                    "maxclass": "newobj",
-                    "numinlets": 1,
-                    "numoutlets": 3,
-                    "outlettype": [ "", "", "" ],
-                    "patching_rect": [ 1250.0, 75.0, 70.0, 22.0 ],
-                    "restore": [ "ji_7.scl" ],
-                    "saved_object_attributes": {
-                        "parameter_enable": 0,
-                        "parameter_mappable": 0
-                    },
-                    "text": "pattr scale",
-                    "varname": "scale"
-                }
-            },
-            {
-                "box": {
-                    "id": "obj-sc3",
-                    "maxclass": "message",
-                    "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 1320.0, 105.0, 105.0, 22.0 ],
-                    "text": "setsymbol $1"
                 }
             },
             {
@@ -2266,7 +2240,7 @@
                                     "numoutlets": 1,
                                     "outlettype": [ "" ],
                                     "patching_rect": [ 30.0, 80.0, 330.0, 22.0 ],
-                                    "text": "priority scale -4, priority number -3, priority pitchgrid -2, priority rslider -1"
+                                    "text": "priority umenu -4, priority number -3, priority pitchgrid -2, priority rslider -1"
                                 }
                             },
                             {
@@ -3426,12 +3400,6 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-52", 0 ],
-                    "source": [ "obj-1", 1 ]
-                }
-            },
-            {
-                "patchline": {
                     "destination": [ "obj-53", 0 ],
                     "source": [ "obj-12", 0 ]
                 }
@@ -3570,12 +3538,6 @@
                 "patchline": {
                     "destination": [ "obj-56", 0 ],
                     "source": [ "obj-46", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-sc2", 0 ],
-                    "source": [ "obj-52", 1 ]
                 }
             },
             {
@@ -3849,26 +3811,6 @@
                 "patchline": {
                     "destination": [ "obj-PpresetLogic", 0 ],
                     "source": [ "obj-ps2", 3 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-sc3", 0 ],
-                    "order": 0,
-                    "source": [ "obj-sc2", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-sc5", 0 ],
-                    "order": 1,
-                    "source": [ "obj-sc2", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-52", 0 ],
-                    "source": [ "obj-sc3", 0 ]
                 }
             },
             {
@@ -4355,6 +4297,12 @@
                 "patchline": {
                     "source": [ "obj-1", 1 ],
                     "destination": [ "obj-33", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "obj-52", 1 ],
+                    "destination": [ "obj-sc5", 0 ]
                 }
             }
         ],

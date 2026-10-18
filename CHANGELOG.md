@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-19
+
+### Added
+
+- `dingus.voltagesModulator`: a step reset inlet (bang), the third inlet. The sequence starts again from its first step at the next step. The inlets after it move one place to the right.
+
+### Changed
+
+- `dingus.voltagesModulator`: the inlet that was `resyncBang` is now named `rate~ reset (bang)`. It still resets `rate~`.
+- `dingus.pitchGateSeq` and `dingus.gatesSeq`: the envelope button is removed. The rising edge of the gate starts the envelope directly. The envelope does not play while you edit it, and a preset recall does not play it.
+- `dingus.pitchGateSeq` and `dingus.pitchSeq`: presets store the tuning menu by name (`pattrmode 1`). `[pattr tuning]` and `[pattr scale]` are removed.
+- `dingus.voltagesModulator`: presets do not store the step display.
+
+### Fixed
+
+- `dingus.pitchGateSeq`: a preset could store the tuning as 0 (when no tuning was chosen from the menu after the patch opened). Then a recall did not load a tuning.
+- `dingus.voltagesModulator` and `dingus.pitchSeq`: presets store the direction (the direction menu had no name).
+
 ## [0.3.0] - 2026-10-18
 
 ### Added
@@ -99,7 +117,8 @@ First release. The bpatchers come from the earlier folder `mine/! bpatchers` and
 - `v8` read the `read <file>` notification from pattrstorage as a request to load a script. A `[routepass slotlist]` in front of the presets script now passes only the slot list.
 - The abstraction name `clockExtermalMidiDevice` is now `dingus.clockExternalMidiDevice`.
 
-[unreleased]: https://github.com/biomassa/dingus/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/biomassa/dingus/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/biomassa/dingus/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/biomassa/dingus/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/biomassa/dingus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/biomassa/dingus/releases/tag/v0.1.0
