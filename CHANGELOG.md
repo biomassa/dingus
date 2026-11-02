@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `dingus.pitchGateSeq`: seven chance ops.
+  - DELAY: the note starts 1/16 to 1 step later and keeps its length. The next note cuts it, or replaces it if it hasn't started yet.
+  - REPEAT: the step plays 1 to 8 more times, so that pass gets longer. Other ops roll again on each repeat; REPEAT does not, and a repeated step is not skipped. A jump waits for the last repeat.
+  - REVERSE: the direction flips at the next step until the pass reaches the loop's first step. The set direction then goes on from the step after it, so the first step does not play twice. It has no effect in random direction.
+  - HOLD: the note plays at the pitch that is already sounding.
+  - P PREV and P NEXT: the note takes the pitch of the previous or next note in the pattern, wrapping round the loop.
+  - VEL?: a random velocity within +- 1 to 100 points of the note's VEL.
+
+### Changed
+
+- `dingus.pitchGateSeq`: the op menu and the cell editor have 7 columns. LENGTH is now TIME, RATCH is now REPEAT, and PITCH 2 is new.
+
 ## [0.4.0] - 2026-10-19
 
 ### Added

@@ -175,7 +175,8 @@ var GATENAMES = ['1/16', '1/8', '1/6', '1/4', '1/3', '1/2', '3/4', '1', '1.5', '
 
 // chance ops. a = [min, max, default] of the stored amount;
 // u = unit: 'st' steps, 'to' step number, 'pts' VEL points (0..100), 'gate' index into GATESTEPS,
-//     'x' ratchet count, 'deg' scale degrees (up to one period; default 0 = a full period)
+//     'x' ratchet count, 'deg' scale degrees (up to one period; default 0 = a full period),
+//     'rep' extra plays of the step, 'rnd' +- VEL points
 var OPS = [
 	{ n: '-' },
 	{ n: 'MUTE' }, { n: 'UNMUTE' }, { n: 'SKIP' }, { n: 'UNSKIP' },
@@ -184,13 +185,15 @@ var OPS = [
 	{ n: 'GATE-', a: [0, 11, 3], u: 'gate' }, { n: 'GATE+', a: [0, 11, 3], u: 'gate' }, { n: 'TIE' },
 	{ n: 'RATCH', a: [2, 8, 2], u: 'x' },
 	{ n: 'P+', a: [1, 64, 1], u: 'deg' }, { n: 'P-', a: [1, 64, 1], u: 'deg' },
-	{ n: 'P?+', a: [1, 64, 0], u: 'deg' }, { n: 'P?-', a: [1, 64, 0], u: 'deg' }, { n: 'P?', a: [1, 64, 0], u: 'deg' }
+	{ n: 'P?+', a: [1, 64, 0], u: 'deg' }, { n: 'P?-', a: [1, 64, 0], u: 'deg' }, { n: 'P?', a: [1, 64, 0], u: 'deg' },
+	{ n: 'DELAY', a: [0, 7, 3], u: 'gate' }, { n: 'REPEAT', a: [1, 8, 1], u: 'rep' }, { n: 'REVERSE' },
+	{ n: 'HOLD' }, { n: 'P PREV' }, { n: 'P NEXT' }, { n: 'VEL?', a: [1, 100, 20], u: 'rnd' }
 ];
 // op menu: labelled groups
-var MENUCOLS = [[0, 1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11], [12, 13, 14], [15], [16, 17, 18, 19, 20]];
-var MENUHEAD = ['PLAY', 'JUMP', 'VEL', 'LENGTH', 'RATCH', 'PITCH'];
+var MENUCOLS = [[0, 1, 2, 3, 4], [5, 6, 7, 8, 23], [9, 10, 27, 11], [12, 13, 14, 21], [15, 22], [16, 17, 18, 19, 20], [24, 25, 26]];
+var MENUHEAD = ['PLAY', 'JUMP', 'VEL', 'TIME', 'REPEAT', 'PITCH', 'PITCH 2'];
 var MENUW = 72, MENUH = 20, MENUTOP = 16;
-var EDW = 6 * 72 + 8, EDH = 22 + MENUTOP + 5 * 20 + 4 + 4 * 26 + 6;
+var EDW = 7 * 72 + 8, EDH = 22 + MENUTOP + 5 * 20 + 4 + 4 * 26 + 6;
 var editor = null;     // open cell editor: {nt, li, x, y}
 // PTN choices: [A, B]; [0, 0] = always
 var PTNS = [[0, 0]];
@@ -419,6 +422,18 @@ function prevNote(nt) {
 }
 prevNote.local = 1;
 
+// the note played after nt; the last note's is the first one (the loop wraps)
+function nextNote(nt) {
+	var best = null, first = null;
+	for (var i = 0; i < notes.length; i++) {
+		var o = notes[i];
+		if (o.st > nt.st && (!best || o.st < best.st)) best = o;
+		if (o !== nt && (!first || o.st < first.st)) first = o;
+	}
+	return best || first;
+}
+nextNote.local = 1;
+
 // end of the latest note that ends at or before pos (0 if none)
 function prevEnd(pos, self) {
 	var m = 0;
@@ -560,6 +575,8 @@ function cellText(c) {
 	if (o.u === 'pts') return o.n + ' ' + a;
 	if (o.u === 'gate') return o.n + ' ' + GATENAMES[a] + ' st';
 	if (o.u === 'x') return 'RATCH x' + a;
+	if (o.u === 'rep') return 'REPEAT +' + a;
+	if (o.u === 'rnd') return 'VEL? +-' + a;
 	if (c.op === 16) return 'P +' + a + ' deg';
 	if (c.op === 17) return 'P -' + a + ' deg';
 	if (c.op === 18) return 'P? +1..' + a;
@@ -701,7 +718,11 @@ function writeChance(b) {
 			cols[1][f] = cl.p;
 			cols[2][f] = cl.pa;
 			cols[3][f] = cl.pb;
-			cols[4][f] = opValue(cl);
+			// P PREV / P NEXT: the engine gets the neighbour's degree index
+			if (cl.op === 25 || cl.op === 26) {
+				var nb = cl.op === 25 ? prevNote(nt) : nextNote(nt);
+				cols[4][f] = nb ? nb.pitch : nt.pitch;
+			} else cols[4][f] = opValue(cl);
 		}
 	}
 	for (c = 0; c < CHF; c++) buf.poke(c + 1, b * CHBANK, cols[c]);
@@ -1157,7 +1178,7 @@ function paint() {
 }
 paint.local = 1;
 
-// the op grid (menu or inside the editor): 6 labelled columns at (x, y)
+// the op grid (menu or inside the editor): labelled columns at (x, y)
 function gridItemAt(gx, gy, x, y) {
 	var c = Math.floor((x - gx - 2) / MENUW), k = Math.floor((y - gy - 2 - MENUTOP) / MENUH);
 	if (c < 0 || c >= MENUCOLS.length || k < 0 || k >= MENUCOLS[c].length) return -1;
@@ -1488,6 +1509,8 @@ function cellAmountText(c) {
 	if (o.u === 'to') return 'to ' + a;
 	if (o.u === 'x') return 'x' + a;
 	if (o.u === 'deg') return a + ' deg';
+	if (o.u === 'rep') return '+' + a;
+	if (o.u === 'rnd') return '+-' + a;
 	return a + ' ' + o.u;
 }
 cellAmountText.local = 1;

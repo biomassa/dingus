@@ -177,4 +177,36 @@ click(...pm);
 t.ctx.ondblclick(...pm, 1, 0, 0, 0, 0, 0);
 assert.equal(cell().amt, before - 3, "not twice when onclick took the same click");
 
+// the ops of the time, repeat, reverse and borrow group: menu, amounts in their units
+{
+	const u = load();
+	u.ctx.steps(3);
+	u.run(`chN = 1; notes = [40, 45, 50].map((p, i) => { const nt = newNote(i, 1, p); return nt; });`);
+	u.run("changed(false)");
+	const names = plain(u.run("[].concat.apply([], MENUCOLS).map((o) => OPS[o].n)"));
+	for (const nm of ["DELAY", "REPEAT", "REVERSE", "HOLD", "P PREV", "P NEXT", "VEL?"]) assert.ok(names.includes(nm), nm + " in the menu");
+	assert.equal(u.run("MENUCOLS.length"), u.run("MENUHEAD.length"), "a heading per column");
+	assert.ok(u.run("EDW >= MENUCOLS.length * MENUW + 6"), "the grid fits the editor");
+	const set = (i, op, amt) => u.run(`notes[${i}].ch[0] = {op: ${op}, p: 1, pa: 0, pb: 0, amt: ${amt}}; changed(false)`);
+	const sent = (i) => u.peek("pgch", 5, u.run("bank") * u.run("CHBANK") + i);
+	set(0, 21, 3);
+	assert.equal(u.run("cellText(notes[0].ch[0])"), "DELAY 1/4 st");
+	assert.equal(sent(0), 0.25, "DELAY reaches the engine in steps");
+	assert.equal(u.run("amtMax(OPS[21])"), 7, "DELAY stops at 1 step");
+	set(0, 22, 2);
+	assert.equal(u.run("cellText(notes[0].ch[0])"), "REPEAT +2");
+	set(0, 27, 20);
+	assert.equal(u.run("cellText(notes[0].ch[0])"), "VEL? +-20");
+	// borrowed pitches: the neighbours' degrees, wrapping round the loop, and they follow an edit
+	set(0, 25, 0);
+	assert.equal(sent(0), 50, "P PREV of the first note = the last note");
+	set(2, 26, 0);
+	assert.equal(sent(2), 40, "P NEXT of the last note = the first note");
+	set(1, 26, 0);
+	assert.equal(sent(1), 50, "P NEXT of the middle note");
+	u.run("notes[2].pitch = 52; changed(false)");
+	assert.equal(sent(1), 52, "follows the neighbour when it moves");
+	assert.equal(u.run("notes[1].ch[0].amt"), 0, "the cell itself stores no pitch");
+}
+
 console.log("pgroll.chance: all tests passed");
