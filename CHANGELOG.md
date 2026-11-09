@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `dingus.markovSeq`: a Markov-chain pitch and gate sequencer. Not yet tested in Max.
+  - Each note in the piano roll is a state. The chain stays on a note for the note's length, then follows one of the note's links, picked by chance. Gaps between notes take no time. A note with VEL 0 is a rest.
+  - Links: every new note has a link to the next note. Shift-drag from a note to a note adds a link. Click a note to see its links; drag a link's % box to set its chance (1 to 99 %), double-click the box to delete the link. Colour and thickness show the chance.
+  - START marker: its links pick the note at a restart.
+  - Restart: every N phasor cycles, N can be a fraction. The restart inlet restarts at once.
+  - Freeze (toggle and inlet): the period before repeats exactly. `mutate %` is the chance per note of a new choice while frozen.
+  - Lanes: VEL, GATE (the part of the note's length that sounds), GLIDE, RATCH, FADE, DUTY, and chance lanes with the ops of `dingus.pitchGateSeq` except SKIP, UNSKIP, the jumps, REPEAT, REVERSE, P PREV and P NEXT.
+  - Notes on different pitch rows can share their time. The lanes and chance cells then show the selected note. The default link of a note goes to the first note that starts later.
+  - Group: shift-drag from empty space draws a rectangle that picks notes. Drag one picked note to move them all; double-click one to delete them all.
+  - 32 sequences, presets in `uMK_<name>.json`, sequences in `uMKseq_<name>.json`.
+- `dingus.pitchGateSeq` and `dingus.markovSeq`: undo and redo, 5 levels per sequence. Ctrl+Z is undo, Ctrl+Shift+Z is redo (macOS keeps the Command key combinations). Only the roll that was used last reacts. The rolls also take `undo` and `redo` messages. Not yet tested in Max.
 - `dingus.pitchGateSeq`: seven chance ops.
   - DELAY: the note starts 1/16 to 1 step later and keeps its length. The next note cuts it, or replaces it if it hasn't started yet.
   - REPEAT: the step plays 1 to 8 more times, so that pass gets longer. Other ops roll again on each repeat; REPEAT does not, and a repeated step is not skipped. A jump waits for the last repeat.

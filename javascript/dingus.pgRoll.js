@@ -41,6 +41,7 @@
 //   buffer name        buffer~ for the note tables and the pitch table
 //   chbuffer name      buffer~ for the chance cells
 //   notes ...          set everything (stored format), no output
+//   undo / redo        5 levels, for the current sequence; only in the editor used last
 //   clear              delete the notes of the current sequence
 //   clearall           empty all 32 sequences (the scale mask stays)
 //   seq n              sequence 0..31 (at the phasor wrap while the engine runs)
@@ -843,8 +844,75 @@ function changed(out) {
 	mgraphics.redraw();
 	notifyclients();
 	if (out) outlet(0, flat());
+	if (out) undoCommit();
 }
 changed.local = 1;
+
+
+// --- undo --------------------------------------------------
+// 5 levels, per sequence. 'undo' / 'redo' act only in the editor that was used last
+// (all dingus rolls share the Global, so one Cmd+Z reaches one of them).
+var UNDOMAX = 5;
+var undoStack = [], redoStack = [], undoBase = null, undoing = false;
+var undoId = Math.random();
+var undoWho = new Global('dingusUndoFocus');
+
+function undoSnap() {
+	return JSON.stringify(flat());
+}
+undoSnap.local = 1;
+
+// the start of a mouse gesture: this editor has the focus, and this is the state to come back to
+function undoTouch() {
+	undoWho.id = undoId;
+	undoBase = undoSnap();
+}
+undoTouch.local = 1;
+
+// the end of an edit: if something changed, the state before it goes on the stack
+function undoCommit() {
+	if (undoing) return;
+	var cur = undoSnap();
+	if (undoBase !== null && cur !== undoBase) {
+		undoStack.push(undoBase);
+		if (undoStack.length > UNDOMAX) undoStack.shift();
+		redoStack = [];
+		undoWho.id = undoId;
+	}
+	undoBase = cur;
+}
+undoCommit.local = 1;
+
+function undoReset() {
+	undoStack = [];
+	redoStack = [];
+	undoBase = null;
+}
+undoReset.local = 1;
+
+function undoApply(from, to) {
+	if (!from.length || undoWho.id !== undoId) return;
+	to.push(undoSnap());
+	if (to.length > UNDOMAX) to.shift();
+	var st = JSON.parse(from.pop());
+	undoing = true;
+	drag = null;
+	menu = null;
+	editor = null;
+	unflat(st);
+	changed(true);
+	undoing = false;
+	undoBase = undoSnap();
+}
+undoApply.local = 1;
+
+function undo() {
+	undoApply(undoStack, redoStack);
+}
+
+function redo() {
+	undoApply(redoStack, undoStack);
+}
 
 // --- drawing -----------------------------------------------
 function paint() {
@@ -1628,6 +1696,7 @@ emptyState.local = 1;
 // --- sequences ---------------------------------------------
 // the current state from a stored sequence (null = empty, keeping the step count)
 function loadSeq(a) {
+	undoReset();
 	if (a && a.length) unflat(a);
 	else emptyState();
 	fitBox();
@@ -2029,6 +2098,7 @@ function onidleout() {
 onidleout.local = 1;
 
 function onclick(x, y, but, cmd, shift, capslock, option, ctrl) {
+	undoTouch();
 	drag = null;
 	var h = dims()[1];
 	if (editor && editorClick(x, y)) return;
