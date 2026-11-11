@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- voltagesModulatorTrig: a voltages sequencer clocked by audio triggers instead of a phasor. Every `div` rising edges advance one step, for CV that follows markovSeq's gates. The yellow scope shows the input, and the green scope shows the steps. It keeps its own preset and sequence files (`uVTRG`).
+- markovSeq: grey ghost outlines in the roll show where the walk actually plays each note in the first cycle. The walk follows the most likely links, and a red end marks a note cut short by a restart. Turn them off with `ghosts 0`.
+
 ### Fixed
 
 - gatesSeq, pitchGateSeq and markovSeq: the clock scope was never connected. It now shows the incoming phasor (orange) with the step ticks over it (green), as in pitchSeq.
 - markovSeq: after a pause, restarts no longer drift away from the phasor wraps.
+- markovSeq: when the clock stops during a long note, the note now ends after 100 ms instead of sounding forever.
 
 ## [0.5.0] - 2026-11-10
 

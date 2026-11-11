@@ -260,5 +260,27 @@ assert.ok(cold[2] > 0.9 && cold[0] < 0.3, "chance 0 is blue");
 	assert.equal(u.run("group.length"), 0, "a click elsewhere lets it go");
 }
 
+// ghosts: the walk over the first cycle; 5 steps, note A (1 step) -> B (3.5 steps) -> A, restart every cycle
+{
+	const u = load();
+	u.ctx.steps(5);
+	const GX = (pos) => u.run(`xOf(${pos})`), GY = (p) => u.run(`noteY(rows(), {pitch: ${p}})`);
+	for (const [pos, p] of [[0.1, 40], [1.1, 43]]) { u.ctx.onclick(GX(pos), GY(p), 1, 0, 0, 0, 0, 0); u.ctx.ondrag(GX(pos + 0.9), GY(p), 1, 0, 0, 0, 0, 0); u.ctx.ondrag(GX(pos + 0.9), GY(p), 0, 0, 0, 0, 0, 0); }
+	u.run("notes[1].len = 3.5");
+	const walk = () => plain(u.run("walkGhosts().map((e) => [notes.indexOf(e.nt), e.t, e.len, e.cut])"));
+	assert.deepEqual(walk(), [[0, 0, 1, false], [1, 1, 3.5, false], [0, 4.5, 0.5, true]], "A, B, A cut by the restart");
+	u.ctx.restart(0.5);
+	assert.deepEqual(walk(), [[0, 0, 1, false], [1, 1, 1.5, true], [0, 2.5, 1, false], [1, 3.5, 1.5, true]], "restart every half cycle");
+	u.ctx.restart(1);
+	// two links from A: the walk follows the likelier one, and its chance dims the ghosts after it
+	u.run("notes[0].lk.push({ t: notes[0], w: 3 }); notes[0].lk[0].w = 1");
+	const w2 = plain(u.run("walkGhosts().map((e) => [notes.indexOf(e.nt), e.t, Math.round(e.p * 100)])"));
+	assert.deepEqual(w2.slice(0, 3), [[0, 0, 100], [0, 1, 75], [0, 2, 56]], "A -> A at 75 %");
+	u.ctx.ghosts(0);
+	u.run("paint()");
+	u.ctx.ghosts(1);
+	u.run("paint()");
+}
+
 t.run("paint()");
 console.log("markovroll.links: all tests passed");

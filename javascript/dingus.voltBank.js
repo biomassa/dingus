@@ -5,7 +5,8 @@
 // A sequence: step count, a voltage per step, rest and skip probabilities per step (1 = always plays),
 // play range. The shown sequence plays from one engine bank; a newly chosen one is written to the other
 // bank and takes over at the phasor wrap (the engine swaps; 'bankis' confirms). Choices made before the
-// confirmation wait for it. All 32 are saved to <presets folder>/uVOLTseq_<name>.json on every change;
+// confirmation wait for it. All 32 are saved to <presets folder>/<prefix>seq_<name>.json on every change
+// (prefix = the first argument, default uVOLT);
 // the first time, the content of the presets file's slots becomes sequences (slot n = sequence n).
 //
 // Skip, the clean rule: only steps inside the range can play; their skip values are raised by the same
@@ -41,7 +42,8 @@ const MAXSTEPS = 64;
 const NSEQ = 32;
 const BANKF = 64;
 const METABASE = 128;
-const PREFIX = 'uVOLT';
+// file prefix: the first argument ([v8 dingus.voltBank.js uVTRG] in voltagesModulatorTrig), else uVOLT
+const PREFIX = typeof jsarguments !== 'undefined' && jsarguments.length > 1 ? String(jsarguments[1]) : 'uVOLT';
 
 const paths = require('dingus.paths.js');
 

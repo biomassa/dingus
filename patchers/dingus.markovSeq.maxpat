@@ -16,22 +16,6 @@
         "boxes": [
             {
                 "box": {
-                    "fontsize": 16.0,
-                    "id": "obj-1",
-                    "linecount": 14,
-                    "maxclass": "comment",
-                    "numinlets": 1,
-                    "numoutlets": 0,
-                    "patching_rect": [ 1149.0, 300.0, 421.0, 257.0 ],
-                    "presentation": 1,
-                    "presentation_linecount": 14,
-                    "presentation_rect": [ 1259.0, 315.0, 318.0, 257.0 ],
-                    "text": "LANES\nclick a note first: lanes edit that note\nclick / drag anywhere in a lane = value\nwith a group: all its notes\nCHANCE LANES (the selected note only)\nclick cell = op menu / editor\ndrag = PROB, alt-drag = amount\nPLAY\nrestart = every N phasor cycles\nfreeze = the last period repeats\nmutate % = chance per note of a new\n   choice while frozen\nmagenta = the note that plays\nCtrl+Z = undo, Ctrl+Shift+Z = redo",
-                    "varname": "hints[1]"
-                }
-            },
-            {
-                "box": {
                     "id": "obj-13",
                     "maxclass": "newobj",
                     "numinlets": 1,
@@ -52,7 +36,7 @@
                     "parameter_enable": 1,
                     "patching_rect": [ 40.0, 620.0, 24.0, 24.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 107.0, 331.0, 24.0, 24.0 ],
+                    "presentation_rect": [ 100.0, 330.0, 24.0, 24.0 ],
                     "saved_attribute_attributes": {
                         "valueof": {
                             "parameter_enum": [ "off", "on" ],
@@ -80,13 +64,14 @@
             },
             {
                 "box": {
+                    "fontsize": 16.0,
                     "id": "obj-7",
                     "maxclass": "comment",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 330.0, 80.0, 150.0, 15.0 ],
+                    "patching_rect": [ 330.0, 80.0, 250.0, 24.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 2.0, 32.0, 38.0, 15.0 ],
+                    "presentation_rect": [ 5.0, 33.0, 44.0, 24.0 ],
                     "text": "beat",
                     "varname": "pg_beatcmt"
                 }
@@ -117,6 +102,7 @@
             },
             {
                 "box": {
+                    "fontsize": 16.0,
                     "id": "obj-3",
                     "maxclass": "number",
                     "maximum": 16,
@@ -125,9 +111,9 @@
                     "numoutlets": 2,
                     "outlettype": [ "", "bang" ],
                     "parameter_enable": 0,
-                    "patching_rect": [ 280.0, 80.0, 50.0, 17.0 ],
+                    "patching_rect": [ 280.0, 80.0, 66.0, 26.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 40.0, 32.0, 38.0, 17.0 ],
+                    "presentation_rect": [ 40.0, 32.0, 32.0, 26.0 ],
                     "varname": "beat"
                 }
             },
@@ -140,7 +126,7 @@
                     "numoutlets": 0,
                     "patching_rect": [ 1225.0, 26.0, 183.0, 24.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 1129.0, 5.0, 41.0, 24.0 ],
+                    "presentation_rect": [ 144.0, 552.0, 41.0, 24.0 ],
                     "text": "env",
                     "textcolor": [ 0.9058823529411765, 0.7450980392156863, 0.12941176470588237, 1.0 ]
                 }
@@ -168,26 +154,10 @@
                     "parameter_enable": 0,
                     "patching_rect": [ 386.0, 116.0, 100.0, 20.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 5.0, 80.0, 22.0 ],
+                    "presentation_rect": [ 5.0, 553.0, 80.0, 22.0 ],
                     "text": "clear all",
                     "textoncolor": [ 1.0, 0.34509803921568627, 0.34509803921568627, 1.0 ],
                     "varname": "clearbtn"
-                }
-            },
-            {
-                "box": {
-                    "fontsize": 16.0,
-                    "id": "obj-2",
-                    "linecount": 18,
-                    "maxclass": "comment",
-                    "numinlets": 1,
-                    "numoutlets": 0,
-                    "patching_rect": [ 1700.0, 950.0, 419.0, 346.0 ],
-                    "presentation": 1,
-                    "presentation_linecount": 18,
-                    "presentation_rect": [ 957.0, 302.0, 396.0, 346.0 ],
-                    "text": "NOTES\nclick = new note, drag right = length\ndrag end = resize (alt = free)\ndrag note = move, option-drag = copy\ndouble-click = delete\nlength = time until the next note\nnotes can stack at one time (other rows)\nVEL 0 = rest, GATE = sounding part\nclick row label = scale degree on/off\nGROUP\nshift-drag from empty space = pick notes\ndrag one = move all, dbl-click = delete all\nLINKS\nshift-drag note to note = link\ndrag START to a note = start link\nclick note or START = show its links\ndrag % box = chance, dbl-click = delete\ncolour: blue = unlikely, red = certain\n",
-                    "varname": "hints"
                 }
             },
             {
@@ -237,9 +207,9 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "parameter_enable": 0,
-                    "patching_rect": [ 386.0, 280.0, 770.0, 642.0 ],
+                    "patching_rect": [ 386.0, 280.0, 1155.0, 806.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 177.0, 23.0, 770.0, 642.0 ],
+                    "presentation_rect": [ 190.0, 32.0, 1502.0, 806.0 ],
                     "textfile": {
                         "filename": "dingus.markovRoll.js",
                         "flags": 0,
@@ -618,7 +588,7 @@
                     "numoutlets": 0,
                     "patching_rect": [ 40.0, 600.0, 50.0, 24.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 57.0, 331.0, 50.0, 24.0 ],
+                    "presentation_rect": [ 123.0, 330.0, 50.0, 24.0 ],
                     "text": "snap"
                 }
             },
@@ -872,21 +842,23 @@
             },
             {
                 "box": {
+                    "activebgcolor": [ 0.156862745098039, 0.156862745098039, 0.156862745098039, 0.0 ],
+                    "activelinecolor": [ 0.3607843137254902, 1.0, 0.19607843137254902, 1.0 ],
                     "id": "ck_ticks",
                     "maxclass": "live.scope~",
-                    "patching_rect": [ 1480.0, 325.0, 95, 40 ],
                     "numinlets": 2,
                     "numoutlets": 1,
                     "outlettype": [ "bang" ],
+                    "patching_rect": [ 1480.0, 325.0, 95.0, 40.0 ],
                     "presentation": 1,
                     "presentation_rect": [ 2.0, 226.0, 172.0, 43.0 ],
                     "range": [ -0.1, 1.1 ],
-                    "activebgcolor": [ 0.156862745098039, 0.156862745098039, 0.156862745098039, 0.0 ],
-                    "activelinecolor": [ 0.3607843137254902, 1.0, 0.19607843137254902, 1.0 ]
+                    "varname": "sc_e"
                 }
             },
             {
                 "box": {
+                    "activelinecolor": [ 1.0, 0.709803921568627, 0.196078431372549, 0.65 ],
                     "id": "g_scope-rate",
                     "maxclass": "live.scope~",
                     "numinlets": 2,
@@ -895,8 +867,8 @@
                     "patching_rect": [ 1360.0, 310.0, 95.0, 40.0 ],
                     "presentation": 1,
                     "presentation_rect": [ 2.0, 226.0, 172.0, 43.0 ],
-                    "activelinecolor": [ 1.0, 0.709803921568627, 0.196078431372549, 0.65 ],
-                    "range": [ -0.1, 1.1 ]
+                    "range": [ -0.1, 1.1 ],
+                    "varname": "sc_d"
                 }
             },
             {
@@ -1062,7 +1034,7 @@
                             },
                             {
                                 "box": {
-                                    "code": "// uMK engine: a Markov chain over the notes of dingus.markovRoll.js\n// note buffer, bank b at frame b * 2048:\n//   note index 0..510 (511 = START): ch 0 length (steps), 1 pitch (MIDI), 2 ratchets, 3 velocity (0 = rest),\n//     4 duty, 5 glide, 6 degree, 7 fade, 8 gate (part of the length that sounds), 9 first link, 10 link count\n//   links at + 512 + k: ch 0 target note index, ch 1 cumulative chance\n//   meta at 4096 + b: ch 0 steps (per phasor cycle), ch 3 chance lanes\n//   pitch table (shared): frame 1024 + degree: ch 0 MIDI, ch 1 scale degrees at or below, ch 2 below; 1024 ch 3 count\n//   scale list: frame 1536 + n: ch 0 degree index of the n-th scale degree\n// chance buffer: frame = b * 32768 + lane * 1024 + note index: op, prob, ptnA, ptnB, amount\n// in1 phasor (one cycle = 'steps' steps)  in2 restart (click)  in3 freeze (> 0.5)\n// out1 gate or trigger (level = velocity of the current hit)  out2 velocity of the current hit (held)\n// out3 the note that plays (index, -1 = none)  out4 envelope gate  out5 pitch (tuned MIDI float, glides)\n// out6 the bank that plays (0 / 1)\n// The chain stays on a note for its length, then follows one of its links, picked by chance.\n// Every 'restart' phasor cycles (fractional; counted from the last reset, so 1 = at each wrap) the\n// walk starts again from one of the START links.\n// All random choices come from one seeded generator. Freeze: every restart starts from the seed of\n// the period before, so that period repeats exactly. mutate = chance per note of a fresh link choice.\nBuffer gb(\"dingus-mk-none\");\nBuffer cb(\"dingus-mkch-none\");\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam everyr(1, min=0, max=1);\nParam cscale(1, min=0, max=2);\nParam ptnmode(0, min=0, max=1);\nParam barcount(0, min=0);\nParam pend(-1, min=-1, max=1);\nParam swapnow(0);\nParam restart(1, min=0.01);\nParam freeze(0, min=0, max=1);\nParam mutate(0, min=0, max=1);\n// (sent by the patch, not used here)\nParam steps(5);\nParam dir(0);\nParam rstart(0);\nParam rend(63);\nParam lanes(0);\n\nHistory rst(1);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory ppitch(0);\nHistory pfrom(0);\nHistory pto(0);\nHistory gpos(0);\nHistory gdur(0);\nHistory havep(0);\nHistory gfade(0);\nHistory hvel(0);\nHistory reps(-1);\nHistory tienext(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\nHistory qon(0);\nHistory qd(0);\nHistory qv(0);\nHistory qlen(1);\nHistory qrat(1);\nHistory qpi(0);\nHistory qfr(0);\nHistory qtie(0);\nHistory qhold(0);\nHistory cn(-1);\nHistory slen(1);\nHistory tin(0);\nHistory cyc(0);\nHistory seed(1234567);\nHistory pseed(1234567);\n\n// phasor progress and bank swap, before anything reads the tables of this sample\ndph = in1 - pph;\nwrapped = dph < -0.5;\nif (wrapped) {\n\tdph = dph + 1;\n}\ndph = max(dph, 0);\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pend >= 0 && pend != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pend;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 2048;\nlbs = nb + 512;\ncbo = bk * 32768;\nmb = 4096 + bk;\nn = clamp(peek(gb, mb, 0), 1, 64);\nmlanes = peek(gb, mb, 3);\n\nrunning = play > 0;\nfrozen = (freeze + in3) > 0.5;\nadv = 0;\ndorst = 0;\nchoose = 0;\nsrc = 0;\nfire = 0;\nfidx = 0;\ng = 0;\nhit = 0;\neg = 0;\ngl = 0;\nhn = 0;\nfa = 0;\nfm = 0;\nrp = 0;\nk = 0;\ncf = 0;\nop = 0;\npa = 0;\npb = 0;\ncnt = 0;\npok = 0;\namt = 0;\nmuted = 0;\ncv = 0;\nclen = 0;\ncrat = 0;\npidx = 0;\ntie = 0;\nsdir = 0;\nscnt = 0;\ntot = 0;\nrle = 0;\nrlt = 0;\ntgt = 0;\nrr = 0;\nhold = 0;\ndly = 0;\nqnew = 0;\nstart = 0;\nr = 0;\nls = 0;\nlc = 0;\ntg = 0;\nlastt = 0;\nlcum = 0;\nltgt = 0;\nc0 = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\nif (running) {\n\tadv = dph * n;\n}\n\n// advance the sounding note (time in steps)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\n// restart: after a reset, and every 'restart' phasor cycles\n// (the cycle count follows the phasor also while paused, so restarts stay on the wraps)\nc0 = floor(cyc / restart);\ncyc = cyc + dph;\nif (running) {\n\tif (rst > 0) {\n\t\trst = 0;\n\t\tcyc = in1;\n\t\treps = -1;\n\t\tseed = floor((noise() * 0.5 + 0.5) * 2147483000) + 1;\n\t\tpseed = seed;\n\t\tdorst = 1;\n\t} else if (floor(cyc / restart) != c0) {\n\t\tdorst = 1;\n\t}\n}\nif (dorst > 0) {\n\treps = reps + 1;\n\tif (frozen) {\n\t\tseed = pseed;\n\t} else {\n\t\tpseed = seed;\n\t}\n\tsrc = 511;\n\tchoose = 1;\n\ttin = 0;\n\tqon = 0;\n\tact = 0;\n} else if (cn >= 0 && running) {\n\t// the end of the current note: follow one of its links\n\ttin = tin + adv;\n\tif (tin >= slen) {\n\t\ttin = tin - slen;\n\t\tsrc = cn;\n\t\tchoose = 1;\n\t}\n}\n\n// PTN counter: restarts since the last reset, or bars (from the bar inlet)\ncnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\nif (choose > 0) {\n\tls = peek(gb, nb + src, 9);\n\tlc = peek(gb, nb + src, 10);\n\tseed = (seed * 16807) % 2147483647;\n\tr = seed / 2147483647;\n\tif (mutate > 0 && src != 511) {\n\t\tif (noise() * 0.5 + 0.5 < mutate) {\n\t\t\tr = noise() * 0.5 + 0.5;\n\t\t}\n\t}\n\ttg = -1;\n\tlastt = -1;\n\tfor (k = 0; k < lc; k += 1) {\n\t\tlcum = peek(gb, lbs + ls + k, 1);\n\t\tltgt = peek(gb, lbs + ls + k, 0);\n\t\tif (tg < 0 && r < lcum) {\n\t\t\ttg = ltgt;\n\t\t}\n\t\tlastt = ltgt;\n\t}\n\tif (tg < 0) {\n\t\ttg = lastt;\n\t}\n\t// no links: the walk ends here until the next restart\n\tcn = tg;\n\tif (cn >= 0) {\n\t\tfire = 1;\n\t\tslen = max(peek(gb, nb + cn, 0), 0.01);\n\t}\n}\n\nif (fire > 0) {\n\t// chance lanes, top to bottom; every note rolls its own dice\n\tfidx = nb + cn;\n\tcv = peek(gb, fidx, 3);\n\tclen = slen * clamp(peek(gb, fidx, 8), 0.01, 1);\n\tcrat = max(peek(gb, fidx, 2), 1);\n\tpidx = peek(gb, fidx, 6);\n\t// a rest (VEL 0): no gate, the pitch stays\n\tmuted = (cv <= 0) ? 2 : 0;\n\tfor (k = 0; k < mlanes; k += 1) {\n\t\tcf = cbo + k * 1024 + cn;\n\t\top = peek(cb, cf, 0);\n\t\tif (op > 0) {\n\t\t\tpa = peek(cb, cf, 2);\n\t\t\tpb = peek(cb, cf, 3);\n\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\tr = seed / 2147483647;\n\t\t\tif (pok && r < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\tamt = peek(cb, cf, 4);\n\t\t\t\tsdir = 0;\n\t\t\t\tscnt = 0;\n\t\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\t\tr = seed / 2147483647;\n\t\t\t\tif (op == 1) {\n\t\t\t\t\tmuted = max(muted, 1);\n\t\t\t\t} else if (op == 2) {\n\t\t\t\t\tmuted = (muted > 1) ? 2 : 0;\n\t\t\t\t} else if (op == 9) {\n\t\t\t\t\tcv = max(0, cv - amt / 100);\n\t\t\t\t} else if (op == 10) {\n\t\t\t\t\tcv = min(1, cv + amt / 100);\n\t\t\t\t} else if (op == 11) {\n\t\t\t\t\tcv = 1;\n\t\t\t\t} else if (op == 12) {\n\t\t\t\t\tclen = max(clen - amt, 0.01);\n\t\t\t\t} else if (op == 13) {\n\t\t\t\t\tclen = min(clen + amt, slen);\n\t\t\t\t} else if (op == 14) {\n\t\t\t\t\tclen = slen;\n\t\t\t\t\ttie = 1;\n\t\t\t\t} else if (op == 15) {\n\t\t\t\t\tcrat = amt;\n\t\t\t\t} else if (op == 16) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 17) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 18) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = 1 + min(floor(r * amt), amt - 1);\n\t\t\t\t} else if (op == 19) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = 1 + min(floor(r * amt), amt - 1);\n\t\t\t\t} else if (op == 20) {\n\t\t\t\t\trr = min(floor(r * (2 * amt + 1)), 2 * amt) - amt;\n\t\t\t\t\tsdir = (rr < 0) ? -1 : 1;\n\t\t\t\t\tscnt = abs(rr);\n\t\t\t\t} else if (op == 21) {\n\t\t\t\t\tdly = amt;\n\t\t\t\t} else if (op == 24) {\n\t\t\t\t\thold = 1;\n\t\t\t\t} else if (op == 27) {\n\t\t\t\t\tcv = clamp(cv + (r * 2 - 1) * amt / 100, 0, 1);\n\t\t\t\t}\n\t\t\t\t// pitch ops: move by scale degrees, via the rank tables\n\t\t\t\tif (sdir != 0 && scnt > 0) {\n\t\t\t\t\thold = 0;\n\t\t\t\t\ttot = peek(gb, 1024, 3);\n\t\t\t\t\trle = peek(gb, 1024 + pidx, 1);\n\t\t\t\t\trlt = peek(gb, 1024 + pidx, 2);\n\t\t\t\t\tif (tot > 0) {\n\t\t\t\t\t\tif (sdir > 0) {\n\t\t\t\t\t\t\trr = min(rle + scnt - 1, tot - 1);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = max(pidx, tgt);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trr = max(rlt - scnt, 0);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = min(pidx, tgt);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\t// DELAY: the note starts later inside its own time\n\tclen = min(clen, slen - dly);\n\tif (clen <= 0) {\n\t\tmuted = max(muted, 1);\n\t}\n\tif (muted == 0) {\n\t\tqon = 1;\n\t\tqnew = 1;\n\t\tqd = dly;\n\t\tqv = cv;\n\t\tqlen = clen;\n\t\tqrat = crat;\n\t\tqpi = pidx;\n\t\tqfr = fidx;\n\t\tqtie = tie;\n\t\tqhold = hold;\n\t}\n}\n\n// the note waiting for its start (at once without DELAY)\nif (qon > 0) {\n\tif (running == 0) {\n\t\tqon = 0;\n\t} else {\n\t\tif (qnew == 0) {\n\t\t\tqd = qd - adv;\n\t\t}\n\t\tif (qd <= 0) {\n\t\t\tqon = 0;\n\t\t\tstart = 1;\n\t\t}\n\t}\n}\n\nif (start > 0) {\n\tif (lastout > 0 && trig == 0 && tienext == 0) {\n\t\tgapc = floor(samplerate * 0.003);\n\t}\n\ttienext = qtie;\n\tact = 1;\n\tel = 0;\n\tglen = qlen;\n\tgrat = max(qrat, 1);\n\tgvel = qv;\n\tgduty = peek(gb, qfr, 4);\n\tgfade = peek(gb, qfr, 7);\n\tgfill = min(qlen, 1);\n\thitprev = -1;\n\t// HOLD: the pitch stays where it is; otherwise jump, or glide from the current pitch over GLIDE steps\n\tif (qhold == 0) {\n\t\tgl = peek(gb, qfr, 5);\n\t\tif (havep > 0 && gl > 0) {\n\t\t\tpfrom = ppitch;\n\t\t\tgdur = gl;\n\t\t\tgpos = 0;\n\t\t} else {\n\t\t\tgdur = 0;\n\t\t}\n\t\tpto = (qpi >= 0 && qpi < 512) ? peek(gb, 1024 + qpi, 0) : peek(gb, qfr, 1);\n\t\thavep = 1;\n\t}\n}\n\nif (gdur > 0) {\n\tgpos = gpos + adv;\n\tppitch = pfrom + (pto - pfrom) * min(gpos / gdur, 1);\n\tif (gpos >= gdur) {\n\t\tgdur = 0;\n\t}\n} else {\n\tppitch = pto;\n}\n\n// FADE: velocity per ratchet hit, exponential; < 0 rises to VEL, > 0 falls from VEL;\n// at +-50 the quietest hit is 1% of VEL\nif (act > 0) {\n\thvel = gvel;\n\tif (grat > 1 && gfade != 0) {\n\t\thn = min(floor(el / glen * grat), grat - 1) / (grat - 1);\n\t\tfm = pow(0.01, abs(gfade) / 50);\n\t\tfa = (gfade < 0) ? pow(fm, 1 - hn) : pow(fm, hn);\n\t\thvel = gvel * fa;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per note / ratchet hit, 1..10 ms\n\t// pulse length from the note length (up to 1 step), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = hvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole note evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = hvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = hvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new note follows a high one, so it retriggers (not after TIE)\n// envelope gate: every ratchet hit, or the whole note\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = hvel;\nout3 = cn;\nout4 = eg;\nout5 = ppitch;\nout6 = bk;\n",
+                                    "code": "// uMK engine: a Markov chain over the notes of dingus.markovRoll.js\n// note buffer, bank b at frame b * 2048:\n//   note index 0..510 (511 = START): ch 0 length (steps), 1 pitch (MIDI), 2 ratchets, 3 velocity (0 = rest),\n//     4 duty, 5 glide, 6 degree, 7 fade, 8 gate (part of the length that sounds), 9 first link, 10 link count\n//   links at + 512 + k: ch 0 target note index, ch 1 cumulative chance\n//   meta at 4096 + b: ch 0 steps (per phasor cycle), ch 3 chance lanes\n//   pitch table (shared): frame 1024 + degree: ch 0 MIDI, ch 1 scale degrees at or below, ch 2 below; 1024 ch 3 count\n//   scale list: frame 1536 + n: ch 0 degree index of the n-th scale degree\n// chance buffer: frame = b * 32768 + lane * 1024 + note index: op, prob, ptnA, ptnB, amount\n// in1 phasor (one cycle = 'steps' steps)  in2 restart (click)  in3 freeze (> 0.5)\n// out1 gate or trigger (level = velocity of the current hit)  out2 velocity of the current hit (held)\n// out3 the note that plays (index, -1 = none)  out4 envelope gate  out5 pitch (tuned MIDI float, glides)\n// out6 the bank that plays (0 / 1)\n// The chain stays on a note for its length, then follows one of its links, picked by chance.\n// Every 'restart' phasor cycles (fractional; counted from the last reset, so 1 = at each wrap) the\n// walk starts again from one of the START links.\n// All random choices come from one seeded generator. Freeze: every restart starts from the seed of\n// the period before, so that period repeats exactly. mutate = chance per note of a fresh link choice.\nBuffer gb(\"dingus-mk-none\");\nBuffer cb(\"dingus-mkch-none\");\nParam play(1, min=0, max=1);\nParam trig(0, min=0, max=1);\nParam everyr(1, min=0, max=1);\nParam cscale(1, min=0, max=2);\nParam ptnmode(0, min=0, max=1);\nParam barcount(0, min=0);\nParam pend(-1, min=-1, max=1);\nParam swapnow(0);\nParam restart(1, min=0.01);\nParam freeze(0, min=0, max=1);\nParam mutate(0, min=0, max=1);\n// (sent by the patch, not used here)\nParam steps(5);\nParam dir(0);\nParam rstart(0);\nParam rend(63);\nParam lanes(0);\n\nHistory rst(1);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gduty(0.5);\nHistory gapc(0);\nHistory lastout(0);\nHistory gfill(1);\nHistory hitprev(-1);\nHistory tc(0);\nHistory ppitch(0);\nHistory pfrom(0);\nHistory pto(0);\nHistory gpos(0);\nHistory gdur(0);\nHistory havep(0);\nHistory gfade(0);\nHistory hvel(0);\nHistory reps(-1);\nHistory tienext(0);\nHistory bk(0);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\nHistory qon(0);\nHistory qd(0);\nHistory qv(0);\nHistory qlen(1);\nHistory qrat(1);\nHistory qpi(0);\nHistory qfr(0);\nHistory qtie(0);\nHistory qhold(0);\nHistory cn(-1);\nHistory slen(1);\nHistory tin(0);\nHistory cyc(0);\nHistory seed(1234567);\nHistory pseed(1234567);\n\n// phasor progress and bank swap, before anything reads the tables of this sample\ndph = in1 - pph;\nwrapped = dph < -0.5;\nif (wrapped) {\n\tdph = dph + 1;\n}\ndph = max(dph, 0);\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pend >= 0 && pend != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pend;\n\trst = 1;\n}\nlastsw = swapnow;\nnb = bk * 2048;\nlbs = nb + 512;\ncbo = bk * 32768;\nmb = 4096 + bk;\nn = clamp(peek(gb, mb, 0), 1, 64);\nmlanes = peek(gb, mb, 3);\n\nrunning = play > 0;\nfrozen = (freeze + in3) > 0.5;\nadv = 0;\ndorst = 0;\nchoose = 0;\nsrc = 0;\nfire = 0;\nfidx = 0;\ng = 0;\nhit = 0;\neg = 0;\ngl = 0;\nhn = 0;\nfa = 0;\nfm = 0;\nrp = 0;\nk = 0;\ncf = 0;\nop = 0;\npa = 0;\npb = 0;\ncnt = 0;\npok = 0;\namt = 0;\nmuted = 0;\ncv = 0;\nclen = 0;\ncrat = 0;\npidx = 0;\ntie = 0;\nsdir = 0;\nscnt = 0;\ntot = 0;\nrle = 0;\nrlt = 0;\ntgt = 0;\nrr = 0;\nhold = 0;\ndly = 0;\nqnew = 0;\nstart = 0;\nr = 0;\nls = 0;\nlc = 0;\ntg = 0;\nlastt = 0;\nlcum = 0;\nltgt = 0;\nc0 = 0;\n\nif (in2 > 0) {\n\trst = 1;\n}\nif (running) {\n\tadv = dph * n;\n}\n\n// advance the sounding note (time in steps)\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n// the clock stopped (the phasor held still for 100 ms): the note ends, as on a pause\nif (still > samplerate * 0.1) {\n\tact = 0;\n\tqon = 0;\n}\n\n// restart: after a reset, and every 'restart' phasor cycles\n// (the cycle count follows the phasor also while paused, so restarts stay on the wraps)\nc0 = floor(cyc / restart);\ncyc = cyc + dph;\nif (running) {\n\tif (rst > 0) {\n\t\trst = 0;\n\t\tcyc = in1;\n\t\treps = -1;\n\t\tseed = floor((noise() * 0.5 + 0.5) * 2147483000) + 1;\n\t\tpseed = seed;\n\t\tdorst = 1;\n\t} else if (floor(cyc / restart) != c0) {\n\t\tdorst = 1;\n\t}\n}\nif (dorst > 0) {\n\treps = reps + 1;\n\tif (frozen) {\n\t\tseed = pseed;\n\t} else {\n\t\tpseed = seed;\n\t}\n\tsrc = 511;\n\tchoose = 1;\n\ttin = 0;\n\tqon = 0;\n\tact = 0;\n} else if (cn >= 0 && running) {\n\t// the end of the current note: follow one of its links\n\ttin = tin + adv;\n\tif (tin >= slen) {\n\t\ttin = tin - slen;\n\t\tsrc = cn;\n\t\tchoose = 1;\n\t}\n}\n\n// PTN counter: restarts since the last reset, or bars (from the bar inlet)\ncnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\nif (choose > 0) {\n\tls = peek(gb, nb + src, 9);\n\tlc = peek(gb, nb + src, 10);\n\tseed = (seed * 16807) % 2147483647;\n\tr = seed / 2147483647;\n\tif (mutate > 0 && src != 511) {\n\t\tif (noise() * 0.5 + 0.5 < mutate) {\n\t\t\tr = noise() * 0.5 + 0.5;\n\t\t}\n\t}\n\ttg = -1;\n\tlastt = -1;\n\tfor (k = 0; k < lc; k += 1) {\n\t\tlcum = peek(gb, lbs + ls + k, 1);\n\t\tltgt = peek(gb, lbs + ls + k, 0);\n\t\tif (tg < 0 && r < lcum) {\n\t\t\ttg = ltgt;\n\t\t}\n\t\tlastt = ltgt;\n\t}\n\tif (tg < 0) {\n\t\ttg = lastt;\n\t}\n\t// no links: the walk ends here until the next restart\n\tcn = tg;\n\tif (cn >= 0) {\n\t\tfire = 1;\n\t\tslen = max(peek(gb, nb + cn, 0), 0.01);\n\t}\n}\n\nif (fire > 0) {\n\t// chance lanes, top to bottom; every note rolls its own dice\n\tfidx = nb + cn;\n\tcv = peek(gb, fidx, 3);\n\tclen = slen * clamp(peek(gb, fidx, 8), 0.01, 1);\n\tcrat = max(peek(gb, fidx, 2), 1);\n\tpidx = peek(gb, fidx, 6);\n\t// a rest (VEL 0): no gate, the pitch stays\n\tmuted = (cv <= 0) ? 2 : 0;\n\tfor (k = 0; k < mlanes; k += 1) {\n\t\tcf = cbo + k * 1024 + cn;\n\t\top = peek(cb, cf, 0);\n\t\tif (op > 0) {\n\t\t\tpa = peek(cb, cf, 2);\n\t\t\tpb = peek(cb, cf, 3);\n\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\tr = seed / 2147483647;\n\t\t\tif (pok && r < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\tamt = peek(cb, cf, 4);\n\t\t\t\tsdir = 0;\n\t\t\t\tscnt = 0;\n\t\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\t\tr = seed / 2147483647;\n\t\t\t\tif (op == 1) {\n\t\t\t\t\tmuted = max(muted, 1);\n\t\t\t\t} else if (op == 2) {\n\t\t\t\t\tmuted = (muted > 1) ? 2 : 0;\n\t\t\t\t} else if (op == 9) {\n\t\t\t\t\tcv = max(0, cv - amt / 100);\n\t\t\t\t} else if (op == 10) {\n\t\t\t\t\tcv = min(1, cv + amt / 100);\n\t\t\t\t} else if (op == 11) {\n\t\t\t\t\tcv = 1;\n\t\t\t\t} else if (op == 12) {\n\t\t\t\t\tclen = max(clen - amt, 0.01);\n\t\t\t\t} else if (op == 13) {\n\t\t\t\t\tclen = min(clen + amt, slen);\n\t\t\t\t} else if (op == 14) {\n\t\t\t\t\tclen = slen;\n\t\t\t\t\ttie = 1;\n\t\t\t\t} else if (op == 15) {\n\t\t\t\t\tcrat = amt;\n\t\t\t\t} else if (op == 16) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 17) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = amt;\n\t\t\t\t} else if (op == 18) {\n\t\t\t\t\tsdir = 1;\n\t\t\t\t\tscnt = 1 + min(floor(r * amt), amt - 1);\n\t\t\t\t} else if (op == 19) {\n\t\t\t\t\tsdir = -1;\n\t\t\t\t\tscnt = 1 + min(floor(r * amt), amt - 1);\n\t\t\t\t} else if (op == 20) {\n\t\t\t\t\trr = min(floor(r * (2 * amt + 1)), 2 * amt) - amt;\n\t\t\t\t\tsdir = (rr < 0) ? -1 : 1;\n\t\t\t\t\tscnt = abs(rr);\n\t\t\t\t} else if (op == 21) {\n\t\t\t\t\tdly = amt;\n\t\t\t\t} else if (op == 24) {\n\t\t\t\t\thold = 1;\n\t\t\t\t} else if (op == 27) {\n\t\t\t\t\tcv = clamp(cv + (r * 2 - 1) * amt / 100, 0, 1);\n\t\t\t\t}\n\t\t\t\t// pitch ops: move by scale degrees, via the rank tables\n\t\t\t\tif (sdir != 0 && scnt > 0) {\n\t\t\t\t\thold = 0;\n\t\t\t\t\ttot = peek(gb, 1024, 3);\n\t\t\t\t\trle = peek(gb, 1024 + pidx, 1);\n\t\t\t\t\trlt = peek(gb, 1024 + pidx, 2);\n\t\t\t\t\tif (tot > 0) {\n\t\t\t\t\t\tif (sdir > 0) {\n\t\t\t\t\t\t\trr = min(rle + scnt - 1, tot - 1);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = max(pidx, tgt);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\trr = max(rlt - scnt, 0);\n\t\t\t\t\t\t\ttgt = peek(gb, 1536 + rr, 0);\n\t\t\t\t\t\t\tpidx = min(pidx, tgt);\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\t// DELAY: the note starts later inside its own time\n\tclen = min(clen, slen - dly);\n\tif (clen <= 0) {\n\t\tmuted = max(muted, 1);\n\t}\n\tif (muted == 0) {\n\t\tqon = 1;\n\t\tqnew = 1;\n\t\tqd = dly;\n\t\tqv = cv;\n\t\tqlen = clen;\n\t\tqrat = crat;\n\t\tqpi = pidx;\n\t\tqfr = fidx;\n\t\tqtie = tie;\n\t\tqhold = hold;\n\t}\n}\n\n// the note waiting for its start (at once without DELAY)\nif (qon > 0) {\n\tif (running == 0) {\n\t\tqon = 0;\n\t} else {\n\t\tif (qnew == 0) {\n\t\t\tqd = qd - adv;\n\t\t}\n\t\tif (qd <= 0) {\n\t\t\tqon = 0;\n\t\t\tstart = 1;\n\t\t}\n\t}\n}\n\nif (start > 0) {\n\tif (lastout > 0 && trig == 0 && tienext == 0) {\n\t\tgapc = floor(samplerate * 0.003);\n\t}\n\ttienext = qtie;\n\tact = 1;\n\tel = 0;\n\tglen = qlen;\n\tgrat = max(qrat, 1);\n\tgvel = qv;\n\tgduty = peek(gb, qfr, 4);\n\tgfade = peek(gb, qfr, 7);\n\tgfill = min(qlen, 1);\n\thitprev = -1;\n\t// HOLD: the pitch stays where it is; otherwise jump, or glide from the current pitch over GLIDE steps\n\tif (qhold == 0) {\n\t\tgl = peek(gb, qfr, 5);\n\t\tif (havep > 0 && gl > 0) {\n\t\t\tpfrom = ppitch;\n\t\t\tgdur = gl;\n\t\t\tgpos = 0;\n\t\t} else {\n\t\t\tgdur = 0;\n\t\t}\n\t\tpto = (qpi >= 0 && qpi < 512) ? peek(gb, 1024 + qpi, 0) : peek(gb, qfr, 1);\n\t\thavep = 1;\n\t}\n}\n\nif (gdur > 0) {\n\tgpos = gpos + adv;\n\tppitch = pfrom + (pto - pfrom) * min(gpos / gdur, 1);\n\tif (gpos >= gdur) {\n\t\tgdur = 0;\n\t}\n} else {\n\tppitch = pto;\n}\n\n// FADE: velocity per ratchet hit, exponential; < 0 rises to VEL, > 0 falls from VEL;\n// at +-50 the quietest hit is 1% of VEL\nif (act > 0) {\n\thvel = gvel;\n\tif (grat > 1 && gfade != 0) {\n\t\thn = min(floor(el / glen * grat), grat - 1) / (grat - 1);\n\t\tfm = pow(0.01, abs(gfade) / 50);\n\t\tfa = (gfade < 0) ? pow(fm, 1 - hn) : pow(fm, hn);\n\t\thvel = gvel * fa;\n\t}\n}\n\nif (trig > 0) {\n\t// trigger mode: one pulse per note / ratchet hit, 1..10 ms\n\t// pulse length from the note length (up to 1 step), or from DUTY (0.05..0.95) when ratcheted\n\tif (act > 0) {\n\t\thit = floor(el / glen * grat);\n\t\tif (hit != hitprev) {\n\t\t\thitprev = hit;\n\t\t\tif (grat > 1) {\n\t\t\t\ttc = floor(samplerate * (1 + (gduty - 0.05) / 0.9 * 9) * 0.001);\n\t\t\t} else {\n\t\t\t\ttc = floor(samplerate * (1 + (gfill - 0.05) / 0.95 * 9) * 0.001);\n\t\t\t}\n\t\t}\n\t}\n\tif (tc > 0) {\n\t\ttc = tc - 1;\n\t\tg = hvel;\n\t}\n} else if (act > 0) {\n\t// ratchets split the whole note evenly; duty only applies with 2+ ratchets\n\tif (grat <= 1) {\n\t\tg = hvel;\n\t} else {\n\t\trp = el / glen * grat;\n\t\tif (rp - floor(rp) < gduty) {\n\t\t\tg = hvel;\n\t\t}\n\t}\n}\n// 3 ms low gap when a new note follows a high one, so it retriggers (not after TIE)\n// envelope gate: every ratchet hit, or the whole note\neg = g;\nif (everyr == 0) {\n\teg = (act > 0) ? gvel : 0;\n}\nif (gapc > 0) {\n\tgapc = gapc - 1;\n\tg = 0;\n\teg = 0;\n}\nlastout = g;\n\nout1 = g;\nout2 = hvel;\nout3 = cn;\nout4 = eg;\nout5 = ppitch;\nout6 = bk;\n",
                                     "fontface": 0,
                                     "fontname": "<Monospaced>",
                                     "fontsize": 12.0,
@@ -1228,8 +1200,9 @@
                     "outlettype": [ "bang" ],
                     "patching_rect": [ 1360.0, 620.0, 233.0, 40.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 221.0, 620.0, 30.0 ],
-                    "range": [ 0.0, 1.0 ]
+                    "presentation_rect": [ 5.0, 769.0, 171.0, 30.0 ],
+                    "range": [ 0.0, 1.0 ],
+                    "varname": "sc_c"
                 }
             },
             {
@@ -1245,10 +1218,10 @@
             },
             {
                 "box": {
-                    "addpoints_with_curve": [ 98.96136899479849, 0.65, 0, 0.0 ],
+                    "addpoints_with_curve": [ 0.0, 1.0, 0, 0.0, 70.1154679313888, 0.0, 0, -0.65 ],
                     "autosustain": 2,
                     "classic_curve": 0,
-                    "domain": 132.7433624267578,
+                    "domain": 337.0066223144531,
                     "fontface": 0,
                     "fontsize": 12.0,
                     "id": "g_env-obj-2",
@@ -1262,7 +1235,7 @@
                     "patching_rect": [ 1430.0, 880.0, 212.0, 98.0 ],
                     "pointsize": 5.0,
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 30.0, 620.0, 115.0 ],
+                    "presentation_rect": [ 5.0, 578.0, 171.0, 115.0 ],
                     "saved_attribute_attributes": {
                         "valueof": {
                             "parameter_invisible": 1,
@@ -1287,7 +1260,7 @@
                     "parameter_enable": 1,
                     "patching_rect": [ 1430.0, 985.0, 212.0, 10.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 147.0, 620.0, 18.0 ],
+                    "presentation_rect": [ 5.0, 695.0, 171.0, 18.0 ],
                     "saved_attribute_attributes": {
                         "valueof": {
                             "parameter_longname": "slider[13]",
@@ -1323,7 +1296,7 @@
                     "outlettype": [ "" ],
                     "patching_rect": [ 1370.0, 845.0, 43.0, 26.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 1087.0, 4.0, 50.0, 26.0 ],
+                    "presentation_rect": [ 99.0, 551.0, 50.0, 26.0 ],
                     "text": "clear",
                     "textcolor": [ 0.9058823529411765, 0.7450980392156863, 0.12941176470588237, 1.0 ]
                 }
@@ -1442,8 +1415,9 @@
                     "outlettype": [ "bang" ],
                     "patching_rect": [ 1500.0, 1045.0, 233.0, 60.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 254.0, 620.0, 36.0 ],
-                    "range": [ 0.0, 1.0 ]
+                    "presentation_rect": [ 5.0, 802.0, 171.0, 36.0 ],
+                    "range": [ 0.0, 1.0 ],
+                    "varname": "sc_b"
                 }
             },
             {
@@ -1654,8 +1628,9 @@
                     "outlettype": [ "bang" ],
                     "patching_rect": [ 320.0, 1010.0, 200.0, 40.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 957.0, 163.0, 620.0, 55.0 ],
-                    "range": [ 0.0, 127.0 ]
+                    "presentation_rect": [ 5.0, 711.0, 171.0, 55.0 ],
+                    "range": [ 0.0, 127.0 ],
+                    "varname": "sc_a"
                 }
             },
             {
@@ -1829,11 +1804,12 @@
                     "outlettype": [ "", "", "", "" ],
                     "patching_rect": [ 1700.0, 700.0, 150.0, 17.0 ],
                     "restore": {
-                        "beat": [ 4 ],
+                        "beat": [ 3 ],
                         "direction": [ 0 ],
                         "everyratchet": [ 1 ],
                         "freeze": [ 0 ],
-                        "function": [ 132.7433624267578, 0.0, 1.0, 98.96136899479849, 0.65, 0, 0.0, "curve" ],
+                        "function": [ 337.0066223144531, 0.0, 1.0, 0.0, 1.0, 0, 0.0, 70.1154679313888, 0.0, 0, -0.65, "curve" ],
+                        "helpbtn": [ -1 ],
                         "low": [ 29 ],
                         "mutate": [ 0 ],
                         "pgroll": [ -5, 0, 12, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ],
@@ -1841,8 +1817,8 @@
                         "ptnmode": [ 0 ],
                         "range": [ 24 ],
                         "rate": [ 1.0 ],
-                        "restart": [ 1.0 ],
-                        "slider[13]": [ 0.0 ],
+                        "restart": [ 0.5 ],
+                        "slider[13]": [ 337.0066119014225 ],
                         "snap": [ 1 ],
                         "triggers": [ 0 ],
                         "tuningmenu": [ "09-22.scl" ]
@@ -1862,6 +1838,9 @@
                         },
                         "function": {
                             "id": "g_env-obj-2"
+                        },
+                        "helpbtn": {
+                            "id": "help_btn"
                         },
                         "low": {
                             "id": "low"
@@ -2151,12 +2130,12 @@
                     "outlettype": [ "" ],
                     "patching_rect": [ 1700.0, 820.0, 300.0, 17.0 ],
                     "priority": {
-                        "direction": -3,
+                        "tuningmenu": -6,
                         "low": -5,
-                        "pgroll": -1,
                         "range": -5,
+                        "direction": -3,
                         "rate": -2,
-                        "tuningmenu": -6
+                        "pgroll": -1
                     },
                     "saved_object_attributes": {
                         "client_rect": [ 580, 87, 949, 304 ],
@@ -2607,7 +2586,8 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 1700.0, 790.0, 90.0, 17.0 ],
-                    "text": "restart $1"
+                    "text": "restart $1",
+                    "varname": "mk_restartmsg"
                 }
             },
             {
@@ -2685,7 +2665,7 @@
                     "parameter_enable": 0,
                     "patching_rect": [ 1600.0, 860.0, 50.0, 26.0 ],
                     "presentation": 1,
-                    "presentation_rect": [ 140.0, 520.0, 38.0, 26.0 ],
+                    "presentation_rect": [ 144.0, 519.0, 38.0, 26.0 ],
                     "varname": "mutate"
                 }
             },
@@ -2781,55 +2761,170 @@
                 "box": {
                     "id": "ck_t",
                     "maxclass": "newobj",
-                    "patching_rect": [ 1480.0, 220.0, 40, 17 ],
-                    "text": "t i i",
                     "numinlets": 1,
                     "numoutlets": 2,
-                    "outlettype": [ "int", "int" ]
+                    "outlettype": [ "int", "int" ],
+                    "patching_rect": [ 1480.0, 220.0, 40.0, 17.0 ],
+                    "text": "t i i"
                 }
             },
             {
                 "box": {
                     "id": "ck_uzi",
                     "maxclass": "newobj",
-                    "patching_rect": [ 1480.0, 240.0, 50, 17 ],
-                    "text": "uzi 1 0",
                     "numinlets": 2,
                     "numoutlets": 3,
-                    "outlettype": [ "bang", "bang", "int" ]
+                    "outlettype": [ "bang", "bang", "int" ],
+                    "patching_rect": [ 1480.0, 240.0, 50.0, 17.0 ],
+                    "text": "uzi 1 0"
                 }
             },
             {
                 "box": {
                     "id": "ck_div",
                     "maxclass": "newobj",
-                    "patching_rect": [ 1540.0, 260.0, 35, 17 ],
-                    "text": "/ 1.",
                     "numinlets": 2,
                     "numoutlets": 1,
-                    "outlettype": [ "float" ]
+                    "outlettype": [ "float" ],
+                    "patching_rect": [ 1540.0, 260.0, 35.0, 17.0 ],
+                    "text": "/ 1."
                 }
             },
             {
                 "box": {
                     "id": "ck_grp",
                     "maxclass": "newobj",
-                    "patching_rect": [ 1480.0, 280.0, 75, 17 ],
-                    "text": "zl.group 256",
                     "numinlets": 2,
                     "numoutlets": 2,
-                    "outlettype": [ "", "" ]
+                    "outlettype": [ "", "" ],
+                    "patching_rect": [ 1480.0, 280.0, 75.0, 17.0 ],
+                    "text": "zl.group 256"
                 }
             },
             {
                 "box": {
                     "id": "ck_what",
                     "maxclass": "newobj",
-                    "patching_rect": [ 1480.0, 300.0, 120, 17 ],
-                    "text": "what~ 0 0.2 0.4 0.6 0.8",
                     "numinlets": 1,
                     "numoutlets": 2,
-                    "outlettype": [ "signal", "int" ]
+                    "outlettype": [ "signal", "int" ],
+                    "patching_rect": [ 1480.0, 300.0, 120.0, 17.0 ],
+                    "text": "what~ 0 0.2 0.4 0.6 0.8"
+                }
+            },
+            {
+                "box": {
+                    "fontsize": 16.0,
+                    "id": "help_btn",
+                    "maxclass": "textbutton",
+                    "numinlets": 1,
+                    "numoutlets": 3,
+                    "outlettype": [ "", "", "int" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 40.0, 1400.0, 24.0, 20.0 ],
+                    "presentation": 1,
+                    "presentation_rect": [ 1.0, 332.0, 26.0, 22.0 ],
+                    "text": "?",
+                    "texton": "?",
+                    "varname": "helpbtn"
+                }
+            },
+            {
+                "box": {
+                    "id": "help_t",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "bang" ],
+                    "patching_rect": [ 40.0, 1430.0, 30.0, 17.0 ],
+                    "text": "t b"
+                }
+            },
+            {
+                "box": {
+                    "id": "help_open",
+                    "maxclass": "message",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 40.0, 1455.0, 40.0, 17.0 ],
+                    "text": "open"
+                }
+            },
+            {
+                "box": {
+                    "id": "help_pc",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 40.0, 1480.0, 55.0, 17.0 ],
+                    "text": "pcontrol"
+                }
+            },
+            {
+                "box": {
+                    "id": "help_p",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patcher": {
+                        "fileversion": 1,
+                        "appversion": {
+                            "major": 9,
+                            "minor": 2,
+                            "revision": 1,
+                            "architecture": "x64",
+                            "modernui": 1
+                        },
+                        "classnamespace": "box",
+                        "rect": [ 422.0, 414.0, 820.0, 367.0 ],
+                        "toolbarvisible": 0,
+                        "enablehscroll": 0,
+                        "enablevscroll": 0,
+                        "integercoordinates": 1,
+                        "boxes": [
+                            {
+                                "box": {
+                                    "fontsize": 14.0,
+                                    "id": "help_c0",
+                                    "linecount": 18,
+                                    "maxclass": "comment",
+                                    "numinlets": 1,
+                                    "numoutlets": 0,
+                                    "patching_rect": [ 20.0, 20.0, 380.0, 288.0 ],
+                                    "text": "NOTES\nclick = new note, drag right = length\ndrag end = resize (alt = free)\ndrag note = move, option-drag = copy\ndouble-click = delete\nlength = time until the next note\nnotes can stack at one time (other rows)\nVEL 0 = rest, GATE = sounding part\nclick row label = scale degree on/off\nGROUP\nshift-drag from empty space = pick notes\ndrag one = move all, dbl-click = delete all\nLINKS\nshift-drag note to note = link\ndrag START to a note = start link\nclick note or START = show its links\ndrag % box = chance, dbl-click = delete\ncolour: blue = unlikely, red = certain"
+                                }
+                            },
+                            {
+                                "box": {
+                                    "fontsize": 14.0,
+                                    "id": "help_c1",
+                                    "linecount": 14,
+                                    "maxclass": "comment",
+                                    "numinlets": 1,
+                                    "numoutlets": 0,
+                                    "patching_rect": [ 420.0, 20.0, 380.0, 225.0 ],
+                                    "text": "LANES\nclick a note first: lanes edit that note\nclick / drag anywhere in a lane = value\nwith a group: all its notes\nCHANCE LANES (the selected note only)\nclick cell = op menu / editor\ndrag = PROB, alt-drag = amount\nPLAY\nrestart = every N phasor cycles\nfreeze = the last period repeats\nmutate % = chance per note of a new\n   choice while frozen\nmagenta = the note that plays\nCtrl+Z = undo, Ctrl+Shift+Z = redo"
+                                }
+                            },
+                            {
+                                "box": {
+                                    "comment": "",
+                                    "id": "help_in",
+                                    "index": 1,
+                                    "maxclass": "inlet",
+                                    "numinlets": 0,
+                                    "numoutlets": 1,
+                                    "outlettype": [ "" ],
+                                    "patching_rect": [ 780.0, 387.0, 30.0, 30.0 ]
+                                }
+                            }
+                        ],
+                        "lines": []
+                    },
+                    "patching_rect": [ 40.0, 1505.0, 45.0, 17.0 ],
+                    "text": "p help"
                 }
             }
         ],
@@ -2908,6 +3003,48 @@
                 "patchline": {
                     "destination": [ "roll", 0 ],
                     "source": [ "bufm", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_grp", 0 ],
+                    "source": [ "ck_div", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_what", 0 ],
+                    "source": [ "ck_grp", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_div", 1 ],
+                    "source": [ "ck_t", 1 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_uzi", 0 ],
+                    "source": [ "ck_t", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_div", 0 ],
+                    "source": [ "ck_uzi", 2 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_grp", 0 ],
+                    "source": [ "ck_uzi", 1 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "ck_ticks", 0 ],
+                    "source": [ "ck_what", 0 ]
                 }
             },
             {
@@ -3232,7 +3369,22 @@
             },
             {
                 "patchline": {
+                    "destination": [ "ck_what", 0 ],
+                    "order": 0,
+                    "source": [ "g_ratetilde", 0 ]
+                }
+            },
+            {
+                "patchline": {
                     "destination": [ "g_gen", 0 ],
+                    "order": 2,
+                    "source": [ "g_ratetilde", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "g_scope-rate", 0 ],
+                    "order": 1,
                     "source": [ "g_ratetilde", 0 ]
                 }
             },
@@ -3258,6 +3410,30 @@
                 "patchline": {
                     "destination": [ "g_gen", 0 ],
                     "source": [ "g_trigmsg", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "help_t", 0 ],
+                    "source": [ "help_btn", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "help_pc", 0 ],
+                    "source": [ "help_open", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "help_p", 0 ],
+                    "source": [ "help_pc", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "help_open", 0 ],
+                    "source": [ "help_t", 0 ]
                 }
             },
             {
@@ -3362,6 +3538,14 @@
             {
                 "patchline": {
                     "destination": [ "g_gen", 0 ],
+                    "order": 0,
+                    "source": [ "mk_restartm", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "roll", 0 ],
+                    "order": 1,
                     "source": [ "mk_restartm", 0 ]
                 }
             },
@@ -3732,6 +3916,13 @@
             },
             {
                 "patchline": {
+                    "destination": [ "ck_t", 0 ],
+                    "order": 0,
+                    "source": [ "sq_rt", 1 ]
+                }
+            },
+            {
+                "patchline": {
                     "destination": [ "g_gen", 0 ],
                     "source": [ "sq_rt", 0 ]
                 }
@@ -3745,6 +3936,7 @@
             {
                 "patchline": {
                     "destination": [ "sq_setst", 0 ],
+                    "order": 1,
                     "source": [ "sq_rt", 1 ]
                 }
             },
@@ -3768,15 +3960,22 @@
             },
             {
                 "patchline": {
-                    "destination": [ "stg", 0 ],
+                    "destination": [ "ck_t", 0 ],
                     "order": 0,
                     "source": [ "steps", 0 ]
                 }
             },
             {
                 "patchline": {
-                    "destination": [ "stp", 0 ],
+                    "destination": [ "stg", 0 ],
                     "order": 1,
+                    "source": [ "steps", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "stp", 0 ],
+                    "order": 2,
                     "source": [ "steps", 0 ]
                 }
             },
@@ -3868,72 +4067,6 @@
                 "patchline": {
                     "destination": [ "smin", 0 ],
                     "source": [ "unp", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "g_ratetilde", 0 ],
-                    "destination": [ "g_scope-rate", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "g_ratetilde", 0 ],
-                    "destination": [ "ck_what", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_what", 0 ],
-                    "destination": [ "ck_ticks", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "steps", 0 ],
-                    "destination": [ "ck_t", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "sq_rt", 1 ],
-                    "destination": [ "ck_t", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_t", 1 ],
-                    "destination": [ "ck_div", 1 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_t", 0 ],
-                    "destination": [ "ck_uzi", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_uzi", 2 ],
-                    "destination": [ "ck_div", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_div", 0 ],
-                    "destination": [ "ck_grp", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_uzi", 1 ],
-                    "destination": [ "ck_grp", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "source": [ "ck_grp", 0 ],
-                    "destination": [ "ck_what", 0 ]
                 }
             }
         ],

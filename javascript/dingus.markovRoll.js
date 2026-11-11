@@ -72,6 +72,8 @@
 //   snap 0|1           snap to the beat grid on / off (any value > 0 = on)
 //   setmin n / setmax n   lowest / highest displayed degree index
 //   beat n             beats per step: n grid lines inside each step; the snap grid is 1/n step
+//   restart r          the engine's restart period in phasor cycles: the grid accents each restart
+//   ghosts 0/1         show where the walk plays the notes in the first cycle (default 1)
 //   dictionary name    tuning from a th.scala dict
 //   mask m0 m1 ...     scale mask, one 0/1 per tuning degree; mask all / mask none
 //   labelwidth n       width of the label column
@@ -168,7 +170,7 @@ var snapOn = 1;
 var snapQ = 0.25;      // grid in steps (1 / beats per step), 0 = off
 
 var HEADER = 14;
-var ROLLH = 290;
+var ROLLH = 454;
 var LANEH = 30;
 var CHH = 48;          // chance lane height
 var CHOP = 16;         // the op band at the top of a cell
@@ -188,7 +190,8 @@ var LANES = [
 	{ key: 'd', name: 'DUTY', lo: 0.05, hi: 0.95, col: [0.80, 0.72, 0.52] }    // sand
 ];
 var NOTECOL = [0.85, 0.65, 0.30];   // ochre
-var PLAYCOL = [1.0, 0.30, 0.70];    // the note that plays: magenta (used nowhere else)
+var PLAYCOL = [1.0, 0.30, 0.70];
+var GHOSTCOL = [0.70, 0.70, 0.72];  // ghosts: where the walk plays the notes    // the note that plays: magenta (used nowhere else)
 
 // gate amounts in steps
 var GATESTEPS = [1 / 16, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 3 / 4, 1, 1.5, 2, 3, 4];
@@ -734,27 +737,50 @@ function heat(c) {
 }
 heat.local = 1;
 
-function paintLinks(g, rws) {
-	var srcs = notes.slice();
-	srcs.push('S');
-	var i, k, s, ls, l, t, p;
-	for (var pass = 0; pass < 2; pass++) {
-		for (i = 0; i < srcs.length; i++) {
-			s = srcs[i];
-			if ((pass === 1) !== (s === sel)) continue;     // the selected source last, on top
-			ls = linksOf(s);
-			p = sourcePoint(s, rws);
-			for (k = 0; k < ls.length; k++) {
-				l = ls[k];
-				t = linkTarget(s, l);
-				if (!t) continue;
-				var hc = heat(linkChance(s, l));
-				g.set_source_rgba(hc[0], hc[1], hc[2], s === sel ? 1 : 0.55);
-				g.set_line_width(s === sel ? 1 + linkChance(s, l) * 4 : 1);
-				linkCurve(g, p[0], p[1], xOf(t.st) + 1, noteY(rws, t));
-			}
-		}
+// the links of one source
+function paintSourceLinks(g, rws, s) {
+	var ls = linksOf(s), p = sourcePoint(s, rws);
+	for (var k = 0; k < ls.length; k++) {
+		var l = ls[k], t = linkTarget(s, l);
+		if (!t) continue;
+		var hc = heat(linkChance(s, l));
+		g.set_source_rgba(hc[0], hc[1], hc[2], s === sel ? 1 : 0.55);
+		g.set_line_width(s === sel ? 1 + linkChance(s, l) * 4 : 1);
+		linkCurve(g, p[0], p[1], xOf(t.st) + 1, noteY(rws, t));
 	}
+}
+paintSourceLinks.local = 1;
+
+// START's links, drawn over the label column (after it), with their % boxes when START is selected
+function paintStartLinks(g, rws) {
+	paintSourceLinks(g, rws, 'S');
+	if (sel === 'S') paintHandles(g, rws);
+}
+paintStartLinks.local = 1;
+
+function paintHandles(g, rws) {
+	var ls = linksOf(sel);
+	for (var k = 0; k < ls.length; k++) {
+		var hr = handleRect(sel, ls[k], rws);
+		if (!hr) continue;
+		g.set_source_rgba(0.09, 0.08, 0.07, 0.92);
+		g.rectangle(hr[0], hr[1], hr[2], hr[3]);
+		g.fill();
+		var bc = heat(linkChance(sel, ls[k]));
+		g.set_source_rgba(bc[0], bc[1], bc[2], 1);
+		g.set_line_width(1.5);
+		g.rectangle(hr[0] + 0.5, hr[1] + 0.5, hr[2] - 1, hr[3] - 1);
+		g.stroke();
+		textIn(g, hr[0] + 3, hr[1] + 10, hr[2] - 4, Math.round(linkChance(sel, ls[k]) * 100) + '%', 10, [0.96, 0.93, 0.86]);
+	}
+}
+paintHandles.local = 1;
+
+function paintLinks(g, rws) {
+	var i, k, p;
+	// note links (START's come later, over the label column); the selected source last, on top
+	for (i = 0; i < notes.length; i++) if (notes[i] !== sel) paintSourceLinks(g, rws, notes[i]);
+	if (sel && sel !== 'S') paintSourceLinks(g, rws, sel);
 	if (sel && sel !== 'S') {
 		var r = rowOf(rws, sel.pitch);
 		if (r) {
@@ -764,22 +790,7 @@ function paintLinks(g, rws) {
 			g.stroke();
 		}
 	}
-	if (sel) {
-		ls = linksOf(sel);
-		for (k = 0; k < ls.length; k++) {
-			var hr = handleRect(sel, ls[k], rws);
-			if (!hr) continue;
-			g.set_source_rgba(0.09, 0.08, 0.07, 0.92);
-			g.rectangle(hr[0], hr[1], hr[2], hr[3]);
-			g.fill();
-			var bc = heat(linkChance(sel, ls[k]));
-			g.set_source_rgba(bc[0], bc[1], bc[2], 1);
-			g.set_line_width(1.5);
-			g.rectangle(hr[0] + 0.5, hr[1] + 0.5, hr[2] - 1, hr[3] - 1);
-			g.stroke();
-			textIn(g, hr[0] + 3, hr[1] + 10, hr[2] - 4, Math.round(linkChance(sel, ls[k]) * 100) + '%', 10, [0.96, 0.93, 0.86]);
-		}
-	}
+	if (sel && sel !== 'S') paintHandles(g, rws);
 	for (k = 0; k < group.length; k++) {
 		var gr = rowOf(rws, group[k].pitch);
 		if (!gr) continue;
@@ -1313,13 +1324,12 @@ function paint() {
 		}
 	}
 
-	// step separators + numbers
+	// step separators + numbers; the restarts (every restartP * n steps, from 0) are accented
 	g.select_font_face('Arial');
 	g.set_font_size(10);
 	for (k = 0; k <= n; k++) {
-		if (k % 4 === 0) g.set_source_rgba(0.40, 0.40, 0.43, 1);
-		else g.set_source_rgba(0.26, 0.26, 0.28, 1);
-		g.set_line_width(k % 4 === 0 ? 1 : 0.5);
+		g.set_source_rgba(0.26, 0.26, 0.28, 1);
+		g.set_line_width(0.5);
 		g.move_to(xOf(k), gridTop);
 		g.line_to(xOf(k), laneBottom);
 		g.stroke();
@@ -1328,6 +1338,14 @@ function paint() {
 			g.move_to(xOf(k) + 3, gridTop - 3);
 			g.show_text(String(k + 1));
 		}
+	}
+	g.set_source_rgba(0.40, 0.40, 0.43, 1);
+	g.set_line_width(1);
+	var rper = restartP * n;
+	for (var rk = 0; rk * rper <= n + EPS && rk < 1000; rk++) {
+		g.move_to(xOf(rk * rper), gridTop);
+		g.line_to(xOf(rk * rper), laneBottom);
+		g.stroke();
 	}
 
 	g.set_source_rgba(0.35, 0.35, 0.38, 1);
@@ -1342,6 +1360,9 @@ function paint() {
 		g.line_to(w, cht + i * CHH);
 		g.stroke();
 	}
+
+	// ghosts: where the walk plays the notes (under the notes themselves)
+	if (ghostsOn) paintGhosts(g, rws, cw);
 
 	// notes
 	var selIdx = (sel && sel !== 'S') ? notes.indexOf(sel) : -1;
@@ -1501,6 +1522,7 @@ function paint() {
 	g.set_source_rgba(sel === 'S' ? 0.08 : 0.92, sel === 'S' ? 0.08 : 0.90, sel === 'S' ? 0.08 : 0.84, 1);
 	g.move_to(6, top - 3);
 	g.show_text('START');
+	paintStartLinks(g, rws);
 	g.set_font_size(10);
 	for (i = 0; i < lrs.length; i++) {
 		r = lrs[i];
@@ -1534,13 +1556,13 @@ function paint() {
 	g.set_source_rgba(0.85, 0.83, 0.78, 1);
 	// the shown sequence, and the one waiting for the phasor wrap
 	var nx = queued >= 0 ? queued : pend;
-	g.set_font_size(9);
-	g.set_source_rgba(0.85, 0.83, 0.78, 1);
-	g.move_to(6, RANGEH + HEADER - 3);
-	g.show_text('SEQ ' + (cur + 1));
+	// (the START marker has the header corner; the seq box in the patch shows the number)
 	if (nx >= 0) {
+		g.set_font_size(9);
 		g.set_source_rgba(0.98, 0.45, 0.10, 1);
-		g.show_text(' > ' + (nx + 1));
+		var nxt = '> ' + (nx + 1);
+		g.move_to(labelW - 4 - g.text_measure(nxt)[0], top - 3);
+		g.show_text(nxt);
 	}
 	g.set_source_rgba(0.35, 0.35, 0.38, 1);
 	g.set_line_width(1);
@@ -2270,6 +2292,73 @@ function setmax(v) {
 	parkView();
 	mgraphics.redraw();
 }
+
+// the restart period (phasor cycles): the accented step lines fall on the restarts
+var restartP = 1;
+function restart(v) {
+	restartP = Math.max(0.01, +v || 1);
+	mgraphics.redraw();
+}
+
+var ghostsOn = 1;
+function ghosts(v) {
+	ghostsOn = +v ? 1 : 0;
+	mgraphics.redraw();
+}
+
+// the walk over the first phasor cycle after a reset: from START at every restart, it follows the
+// most likely link of each note (ties: the first). p = the chance of that path so far.
+// Returns [{nt, t, len, p, cut}]: the chain sits on nt from step t for len steps (cut = ended by a restart).
+function walkGhosts() {
+	var out = [], rper = restartP * n, guard = 0;
+	for (var rk = 0; rk * rper < n - EPS && rk < 1000; rk++) {
+		var t = rk * rper, end = Math.min(n, (rk + 1) * rper), s = 'S', p = 1;
+		while (t < end - EPS && guard++ < 4000) {
+			var ls = linksOf(s), best = null, bc = -1;
+			for (var k = 0; k < ls.length; k++) {
+				var c = linkChance(s, ls[k]);
+				if (c > bc + EPS && linkTarget(s, ls[k])) { bc = c; best = ls[k]; }
+			}
+			if (!best) break;              // no links: the walk ends until the next restart
+			var nt = linkTarget(s, best);
+			p *= bc;
+			var len = Math.max(nt.len, 0.01);
+			out.push({ nt: nt, t: t, len: Math.min(len, end - t), p: p, cut: t + len > end + EPS });
+			t += len;
+			s = nt;
+		}
+	}
+	return out;
+}
+walkGhosts.local = 1;
+
+function paintGhosts(g, rws, cw) {
+	var gs = walkGhosts();
+	for (var i = 0; i < gs.length; i++) {
+		var e = gs[i], r = rowOf(rws, e.nt.pitch);
+		if (!r) continue;
+		var x = xOf(e.t) + 1, wd = Math.max(2, e.len * cw - 2);
+		var ny = r.top, nh = Math.max(3, r.h);
+		if (nh > r.h) ny -= (nh - r.h) / 2;
+		var a = 0.15 + 0.25 * e.p;
+		g.set_source_rgba(GHOSTCOL[0], GHOSTCOL[1], GHOSTCOL[2], a * 0.25);
+		g.rectangle(x, ny, wd, nh);
+		g.fill();
+		g.set_source_rgba(GHOSTCOL[0], GHOSTCOL[1], GHOSTCOL[2], a);
+		g.set_line_width(1);
+		g.rectangle(x + 0.5, ny + 0.5, wd - 1, nh - 1);
+		g.stroke();
+		if (e.cut) {
+			// cut short by a restart: a red end
+			g.set_source_rgba(0.95, 0.25, 0.20, 0.9);
+			g.set_line_width(2);
+			g.move_to(x + wd - 1, ny - 2);
+			g.line_to(x + wd - 1, ny + nh + 2);
+			g.stroke();
+		}
+	}
+}
+paintGhosts.local = 1;
 
 function beat(v) {
 	beatN = Math.max(1, Math.min(16, Math.round(v) || 1));

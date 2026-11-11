@@ -198,4 +198,19 @@ assert.equal(seq(play(make((t) => { notes(t, [[0, 1, 40], [1, 1, 42], [2, 1, 43]
 	assert.ok(starts.includes(16) && starts.includes(24), "restarts at 16 and 24 after a pause (" + starts.join(" ") + ")");
 }
 
+// the clock stops in the middle of a long note: the gate ends after 100 ms; when the clock runs again
+// the chain goes on from where it was
+{
+	const e = make((t) => notes(t, [[0, 4, 40], [4, 4, 42]]));
+	const gates = [];
+	for (let i = 0; i < 1000; i++) e.tick(i / 8000);             // 1 step into note 0
+	for (let i = 0; i < 300; i++) gates.push(e.tick(1000 / 8000)[0]); // the clock holds still for 300 ms
+	assert.ok(gates[50] > 0, "still sounding 50 ms after the stop");
+	assert.equal(gates[150], 0, "gate off 150 ms after the stop");
+	assert.equal(gates[299], 0, "and it stays off");
+	let next = -1;
+	for (let i = 1000; i < 8000; i++) { const r = e.tick(i / 8000); if (r[0] > 0 && next < 0) next = i; }
+	assert.equal(+(next / 1000).toFixed(2), 4, "the next note starts on time (step 4)");
+}
+
 console.log("markovseq.engine: all tests passed");

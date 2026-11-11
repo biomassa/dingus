@@ -121,7 +121,8 @@ for (const file of ["dingus.pgRoll.js", "dingus.markovRoll.js"]) {
 	assert.equal(steps, 5, file + ": five levels");
 	assert.deepEqual(t.pitches(), before);
 	// a click that changes nothing adds no level
-	t.ctx.onclick(t.run("xOf(0.5)"), 400, 1, 0, 0, 0, 0, 0); t.ctx.ondrag(t.run("xOf(0.5)"), 400, 0, 0, 0, 0, 0, 0);
+	const ly = t.run("rollBottom() + 5");   // in the first lane, where no note is
+	t.ctx.onclick(t.run("xOf(0.5)"), ly, 1, 0, 0, 0, 0, 0); t.ctx.ondrag(t.run("xOf(0.5)"), ly, 0, 0, 0, 0, 0, 0);
 	// a sequence switch starts a new history
 	t.ctx.seq(1); t.ctx.bankis(t.run("pend"));
 	t.ctx.undo();
