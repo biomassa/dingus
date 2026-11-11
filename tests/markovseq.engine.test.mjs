@@ -191,4 +191,11 @@ assert.equal(seq(play(make((t) => { notes(t, [[0, 1, 40], [1, 1, 42], [2, 1, 43]
 	assert.ok(ev.filter((x, i) => i > 0 && (ev[i - 1].n === 1 || ev[i - 1].n === 2)).every((x) => x.n === 3), "then the last note");
 }
 
+// a pause does not move the restarts off the phasor wraps
+{
+	const ev = play(make(four), 4, (c, e) => { e.P.play = c >= 1.3 && c < 1.6 ? 0 : 1; });
+	const starts = ev.filter((x) => x.n === 0 && x.t > 12).map((x) => x.t);
+	assert.ok(starts.includes(16) && starts.includes(24), "restarts at 16 and 24 after a pause (" + starts.join(" ") + ")");
+}
+
 console.log("markovseq.engine: all tests passed");

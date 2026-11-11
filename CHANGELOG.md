@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- gatesSeq, pitchGateSeq and markovSeq: the clock scope was never connected. It now shows the incoming phasor (orange) with the step ticks over it (green), as in pitchSeq.
+- markovSeq: after a pause, restarts no longer drift away from the phasor wraps.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
