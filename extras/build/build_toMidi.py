@@ -111,7 +111,7 @@ m, s = column(SX + 590, '48', nb, 'synthbend $1'); P.chain(nb, m, s)
 tg = P.toggle(SX + 730, yu, pres=(156, 92, 24, 24), var='glide')
 m, s = column(SX + 730, '1', tg, 'glide $1'); P.chain(tg, m, s)
 # pitch in: cv / midi
-pmenu = P.menu(['cv', 'midi'], SX + 860, yu, 70, pres=(210, 90, 70, 26), var='pitchin')
+pmenu = P.menu(['cv', 'midi'], SX + 860, yu, 70, pres=(210, 90, 47, 26), var='pitchin')
 m, s = column(SX + 860, '0', pmenu, 'prepend pitchin', prep=True)
 P.connect(pmenu, 1, m, 0); P.connect(m, 0, s, 0)
 
@@ -119,7 +119,7 @@ P.connect(pmenu, 1, m, 0); P.connect(m, 0, s, 0)
 TY = ys + 120
 P.comment('TUNING: the same scales as the sequencers; pick the one the sequencer uses (for scale mode)',
           SX, TY, width=860, textcolor=GREY)
-tmenu = P.menu([], SX, TY + 40, 220, pres=(64, 210, 220, 26), var='tuningmenu',
+tmenu = P.menu([], SX, TY + 40, 220, pres=(58, 162, 199, 26), var='tuningmenu',
                autopopulate=1, prefix=SCLDIR, prefix_mode=2, pattrmode=1)
 ld = P.msg('load $1', SX, TY + 160)
 ths = P.obj('th.scala #0_tomidi @tune 440 @center 69', SX, TY + 220, 1, 2, w=360)
@@ -128,7 +128,7 @@ P.connect(tmenu, 1, ld, 0)
 P.chain(ld, ths, sths)
 # buttons
 BX = SX + 600
-bpa = P.button('panic', BX, TY + 40, pres=(4, 122, 60, 24))
+bpa = P.button('panic', BX, TY + 40, pres=(169, 2, 60, 24))
 P.chain(bpa, P.msg('panic', BX, TY + 100), P.obj('s #0-tomidi', BX, TY + 160, 1, 0, []))
 P.comment('panic: all notes off, bends centred', BX + 80, TY + 40, width=320, textcolor=GREY)
 P.obj('autopattr @autorestore 0', SX, TY + 340, 1, 4, varname='u_tomidi_autopattr')
@@ -138,14 +138,14 @@ P.comment("autopattr: the panel's values reach the parent patch's presets", SX, 
 LX, LY = SX + 1040, SY + 90
 P.comment('panel labels:', LX, LY, width=130, textcolor=GREY)
 for k, (t, pr, bold) in enumerate((('toMidi', (4, 2, 100, 24), True), ('mode', (4, 30, 50, 24), False),
-                                   ('MPE', (164, 30, 40, 24), False), ('ch', (166, 60, 26, 24), False),
-                                   ('MPE ch', (4, 60, 64, 24), False), ('bend', (4, 90, 46, 24), False),
-                                   ('glide', (108, 90, 46, 24), False), ('in', (188, 90, 20, 24), False),
-                                   ('tuning', (4, 210, 60, 24), False))):
+                                   ('MPE', (164, 30, 43, 24), False), ('ch', (166, 60, 26, 24), False),
+                                   ('MPE ch', (4, 60, 65, 24), False), ('bend', (4, 90, 46, 24), False),
+                                   ('glide', (108, 90, 46, 24), False), ('in', (188, 90, 22, 24), False),
+                                   ('tuning', (-2, 162, 60, 24), False))):
     P.comment(t, LX, LY + 30 + k * 30, bold=bold, pres=pr)
 # the scale group: only for synths that load the .scl themselves, on one channel
-P.comment('relevant only in non-MPE mode\nwith Scala-capable synths', LX, LY + 30 + 10 * 30, width=280, lines=2,
-          textcolor=GREY, pres=(4, 160, 280, 48))
+P.comment('relevant when nonMPE / scale / Scala-aware synths:', LX, LY + 30 + 10 * 30, width=280, lines=2,
+          textcolor=GREY, pres=(4, 118, 249, 42))
 
 out = os.path.join(os.path.dirname(__file__), '..', '..', 'patchers', 'dingus.toMidi.maxpat')
 print(P.save(out))
