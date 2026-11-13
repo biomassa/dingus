@@ -1,0 +1,216 @@
+{
+    "patcher": {
+        "fileversion": 1,
+        "appversion": {
+            "major": 9,
+            "minor": 2,
+            "revision": 1,
+            "architecture": "x64",
+            "modernui": 1
+        },
+        "classnamespace": "dsp.gen",
+        "rect": [
+            100.0,
+            100.0,
+            680.0,
+            700.0
+        ],
+        "integercoordinates": 1,
+        "boxes": [
+            {
+                "box": {
+                    "id": "gcode",
+                    "maxclass": "codebox",
+                    "code": "// dingus.toMidiIn: catches every note of a gate signal at the sample it happens, for dingus.toMidi.\n// Max reads signals only once per vector (snapshot~), so a short gate (a 1..10 ms trigger) or the 3 ms gap\n// between two notes can be over before it is read: the velocity reads 0, or a note start is missed.\n// Here each rise and fall is counted, and the velocity and pitch are held from the rise, so a reader that\n// looks every few ms sees every note: a new rise count = a new note; rises > falls = the gate is up.\n// in1 gate (level = velocity)  in2 pitch\n// out1 rises (count)  out2 falls (count)  out3 velocity at the last rise (the peak of its first ms)\n// out4 pitch at the last rise\nHistory up(0);\nHistory rises(0);\nHistory falls(0);\nHistory vel(0);\nHistory pit(0);\nHistory pk(0);\n\ng = in1;\nif (g > 0 && up == 0) {\n\trises = rises + 1;\n\tvel = g;\n\tpit = in2;\n\tpk = floor(samplerate * 0.001);\n\tup = 1;\n} else if (g <= 0 && up > 0) {\n\tfalls = falls + 1;\n\tup = 0;\n}\n// a gate that ramps up: its peak over the first ms is the velocity\nif (pk > 0) {\n\tpk = pk - 1;\n\tvel = max(vel, g);\n}\nout1 = rises;\nout2 = falls;\nout3 = vel;\nout4 = pit;\n",
+                    "fontface": 0,
+                    "fontname": "<Monospaced>",
+                    "fontsize": 12.0,
+                    "numinlets": 2,
+                    "numoutlets": 4,
+                    "outlettype": [
+                        "",
+                        "",
+                        "",
+                        ""
+                    ],
+                    "patching_rect": [
+                        20.0,
+                        50.0,
+                        620.0,
+                        560.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin1",
+                    "maxclass": "newobj",
+                    "text": "in 1",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [
+                        ""
+                    ],
+                    "patching_rect": [
+                        20.0,
+                        14.0,
+                        40.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin2",
+                    "maxclass": "newobj",
+                    "text": "in 2",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [
+                        ""
+                    ],
+                    "patching_rect": [
+                        180.0,
+                        14.0,
+                        40.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout1",
+                    "maxclass": "newobj",
+                    "text": "out 1",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [
+                        20.0,
+                        630.0,
+                        45.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout2",
+                    "maxclass": "newobj",
+                    "text": "out 2",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [
+                        180.0,
+                        630.0,
+                        45.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout3",
+                    "maxclass": "newobj",
+                    "text": "out 3",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [
+                        340.0,
+                        630.0,
+                        45.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout4",
+                    "maxclass": "newobj",
+                    "text": "out 4",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [
+                        500.0,
+                        630.0,
+                        45.0,
+                        22.0
+                    ]
+                }
+            }
+        ],
+        "lines": [
+            {
+                "patchline": {
+                    "source": [
+                        "gin1",
+                        0
+                    ],
+                    "destination": [
+                        "gcode",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gin2",
+                        0
+                    ],
+                    "destination": [
+                        "gcode",
+                        1
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gcode",
+                        0
+                    ],
+                    "destination": [
+                        "gout1",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gcode",
+                        1
+                    ],
+                    "destination": [
+                        "gout2",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gcode",
+                        2
+                    ],
+                    "destination": [
+                        "gout3",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gcode",
+                        3
+                    ],
+                    "destination": [
+                        "gout4",
+                        0
+                    ]
+                }
+            }
+        ]
+    }
+}

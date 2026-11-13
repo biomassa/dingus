@@ -1,0 +1,181 @@
+{
+    "patcher": {
+        "fileversion": 1,
+        "appversion": {
+            "major": 9,
+            "minor": 2,
+            "revision": 1,
+            "architecture": "x64",
+            "modernui": 1
+        },
+        "classnamespace": "dsp.gen",
+        "rect": [ 100.0, 100.0, 760.0, 760.0 ],
+        "integercoordinates": 1,
+        "boxes": [
+            {
+                "box": {
+                    "id": "gcode",
+                    "maxclass": "codebox",
+                    "code": "// markovPerc engine: one row (mc channel) of the Markov percussion sequencer, run as mc.gen~ @chans 8.\n// A hit is a state of the row's chain: the chain stays on it for its length (row steps), then follows\n// one of its links, picked by chance. VEL 0 = a rest. Every 'restart' row steps (0 = never; counted from\n// the reset) the walk starts again from one of the row's START links.\n// hit buffer, bank b, row r: base = b * 8192 + r * 1024\n//   hit i 0..126 (127 = START): ch 0 length (row steps), 1 velocity, 2 ratchets, 3 accent (0/1),\n//     4 attack (ms), 5 decay (ms), 6 curve (-1..1: 0 linear, > 0 snappier), 7 first link, 8 link count,\n//     9 first follow link, 10 follow link count\n//   links at base + 128 + k: ch 0 target hit, ch 1 cumulative chance\n//   follow links (same table): ch 0 target hit, ch 1 cumulative chance within the target row's group\n//     (the rest of 1 = no push), ch 2 target row; grouped by target row\n// FOLLOW: when a hit plays (not muted), each row it has follow links into rolls once and may push that\n//   row to one of the targets: the pushed row jumps there at once and walks on from it. A pushed hit\n//   pushes no further (no loops). Pushes go through the request frames 16400 + row (ch 0 hit,\n//   1 sample time, 2 count): a row with a higher number gets them on the same sample, a lower one\n//   up to one signal vector later (mc.gen~ runs the channels one after the other).\n//   row settings at 16384 + b * 8 + r: ch 0 steps per phasor cycle, ch 1 clock (0 phasor, 1 trigger),\n//     ch 2 div (trigger clock: every div-th rising edge is a step), ch 3 restart (row steps, 0 = never),\n//     ch 4 mute, ch 5 chance lanes\n// chance buffer: frame = b * 32768 + lane * 1024 + r * 128 + hit: op, prob, ptnA, ptnB, amount\n// in1 phasor  in2 trigger clock (shared: a rise from 0 to above 0 = an edge)  in3 reset (click)\n// in4 freeze (> 0.5)\n// out1 trigger (level = velocity, 'trigms' long)  out2 envelope (attack, decay, peak = velocity)\n// out3 the hit that plays (-1 = none)  out4 the bank that plays (0 / 1)  out5 row time (steps)\n// The row clock: phasor x steps per cycle, or the trigger clock / div; between trigger steps the time\n// runs on at the speed of the last step (up to the next step), so lengths and ratchets below one step work.\n// A trigger row (re)starts on its first step after a reset.\n// Freeze: every restart starts from the seed of the period before, so that period repeats exactly.\n// mutate = chance per hit of a fresh link choice.\nBuffer gb(\"dingus-mp-none\");\nBuffer cb(\"dingus-mpch-none\");\nParam play(1, min=0, max=1);\nParam pend(-1, min=-1, max=1);\nParam swapnow(0);\nParam freeze(0, min=0, max=1);\nParam mutate(0, min=0, max=1);\nParam cscale(1, min=0, max=2);\nParam ptnmode(0, min=0, max=1);\nParam barcount(0, min=0);\nParam trigms(5, min=0.5, max=50);\nParam accvel(0.3, min=0, max=1);\nParam accdec(1.5, min=0.1, max=10);\n\nHistory rst(1);\nHistory pph(0);\nHistory still(0);\nHistory lastsw(0);\nHistory bk(0);\nHistory prevtr(0);\nHistory ecnt(0);\nHistory tk(0);\nHistory sinc(0);\nHistory tper(0);\nHistory rt(0);\nHistory started(0);\nHistory cn(-1);\nHistory slen(1);\nHistory tin(0);\nHistory reps(-1);\nHistory seed(1234567);\nHistory pseed(1234567);\nHistory qon(0);\nHistory qd(0);\nHistory qv(0);\nHistory qrat(1);\nHistory qacc(0);\nHistory qfr(0);\nHistory qlen(1);\nHistory act(0);\nHistory el(0);\nHistory glen(1);\nHistory grat(1);\nHistory gvel(0);\nHistory gacc(0);\nHistory gfr(0);\nHistory hitprev(-1);\nHistory tc(0);\nHistory tv(0);\nHistory lastg(0);\nHistory ephase(0);\nHistory epos(0);\nHistory ev(0);\nHistory efrom(0);\nHistory epeak(0);\nHistory eatk(1);\nHistory edec(1);\nHistory ek(1);\nHistory sc(0);\nHistory lastser(0);\n\nrow = clamp(mc_channel - 1, 0, 7);\ndph = 0;\nwrapped = 0;\nrb = 0;\nmb = 0;\ncbo = 0;\nnsteps = 1;\ntmode = 0;\ndv = 1;\nrestart = 0;\nmuteRow = 0;\nmlanes = 0;\nrunning = 0;\nfrozen = 0;\nrise = 0;\ntstep = 0;\nadv = 0;\ndorst = 0;\nr0 = 0;\nfr = 0;\nrnew = 0;\nchoose = 0;\nsrc = 0;\nfire = 0;\ncnt = 0;\nls = 0;\nlc = 0;\nr = 0;\ntg = 0;\nlastt = 0;\nk = 0;\nlcum = 0;\nltgt = 0;\nfidx = 0;\ncv = 0;\ncrat = 1;\ncacc = 0;\ndly = 0;\nmuted = 0;\ncf = 0;\nop = 0;\npa = 0;\npb = 0;\npok = 0;\namt = 0;\nstart = 0;\nnewhit = 0;\nh = 0;\ng = 0;\nhv = 0;\ndm = 1;\nwasHigh = 0;\nt0 = sc;\nsc = sc + 1;\nREQ = 16400;\npushed = 0;\nqser = 0;\njt = 0;\nfs = 0;\nfc = 0;\ngrow = -1;\ngdone = 0;\nfe = 0;\ntr = 0;\n\n// phasor progress and bank swap, before anything reads the tables of this sample\ndph = in1 - pph;\nwrapped = dph < -0.5;\nif (wrapped) {\n\tdph = dph + 1;\n}\ndph = max(dph, 0);\nif (in1 != pph) {\n\tstill = 0;\n} else {\n\tstill = min(still + 1, 100000000);\n}\npph = in1;\nif (pend >= 0 && pend != bk && (wrapped || still > samplerate * 0.1 || swapnow != lastsw || play <= 0)) {\n\tbk = pend;\n\trst = 1;\n}\nlastsw = swapnow;\nrb = bk * 8192 + row * 1024;\nmb = 16384 + bk * 8 + row;\ncbo = bk * 32768 + row * 128;\nnsteps = max(peek(gb, mb, 0), 0.01);\ntmode = peek(gb, mb, 1) > 0.5;\ndv = max(floor(peek(gb, mb, 2)), 1);\nrestart = max(peek(gb, mb, 3), 0);\nmuteRow = peek(gb, mb, 4) > 0.5;\nmlanes = peek(gb, mb, 5);\n\nrunning = play > 0;\nfrozen = (freeze + in4) > 0.5;\nif (in3 > 0) {\n\trst = 1;\n}\n\n// the trigger clock: every div-th rising edge (counted from a reset) is a step\nrise = in2 > 0 && prevtr <= 0;\nprevtr = in2;\nif (rise && running) {\n\tif (rst > 0 && tmode) {\n\t\tecnt = 0;\n\t}\n\ttstep = (ecnt == 0);\n\tecnt = (ecnt + 1 >= dv) ? 0 : ecnt + 1;\n}\n\n// the row's time advance (steps) on this sample\nr0 = rt;\nif (tmode) {\n\tsinc = sinc + 1;\n\tif (tstep) {\n\t\tif (rst > 0) {\n\t\t\ttk = 0;\n\t\t\ttper = 0;\n\t\t\trt = 0;\n\t\t\tdorst = 1;\n\t\t} else {\n\t\t\tif (started > 0) {\n\t\t\t\ttper = sinc;\n\t\t\t}\n\t\t\ttk = tk + 1;\n\t\t}\n\t\tsinc = 0;\n\t\tstarted = 1;\n\t}\n\tif (started > 0) {\n\t\tfr = (tper > 0) ? min(sinc / tper, 0.999) : 0;\n\t\trnew = tk + fr;\n\t\tadv = max(rnew - rt, 0);\n\t\trt = rnew;\n\t}\n} else {\n\tif (running) {\n\t\tadv = dph * nsteps;\n\t\tif (rst > 0) {\n\t\t\trt = in1 * nsteps;\n\t\t\tdorst = 1;\n\t\t} else {\n\t\t\trt = rt + adv;\n\t\t}\n\t}\n\tstarted = 0;\n\ttk = 0;\n\tecnt = 0;\n}\nif (running == 0) {\n\tadv = 0;\n}\n\n// restarts: after a reset, and every 'restart' row steps from it\nif (dorst > 0) {\n\trst = 0;\n\treps = -1;\n\tseed = floor((noise() * 0.5 + 0.5) * 2147483000) + 1 + row * 7919;\n\tpseed = seed;\n} else if (running && restart > 0 && (tmode == 0 || started > 0)) {\n\tif (floor(rt / restart + 0.000001) != floor(r0 / restart + 0.000001)) {\n\t\tdorst = 1;\n\t}\n}\n\n// advance the sounding hit\nif (act > 0) {\n\tel = el + adv;\n\tif (el >= glen || running == 0) {\n\t\tact = 0;\n\t}\n}\n\nif (dorst > 0) {\n\treps = reps + 1;\n\tif (frozen) {\n\t\tseed = pseed;\n\t} else {\n\t\tpseed = seed;\n\t}\n\tsrc = 127;\n\tchoose = 1;\n\ttin = 0;\n\tqon = 0;\n\tact = 0;\n} else if (cn >= 0 && running) {\n\t// the end of the current hit: follow one of its links\n\ttin = tin + adv;\n\tif (tin >= slen) {\n\t\ttin = tin - slen;\n\t\tsrc = cn;\n\t\tchoose = 1;\n\t}\n}\n\ncnt = (ptnmode > 0) ? barcount : max(reps, 0);\n\nif (choose > 0) {\n\tls = peek(gb, rb + src, 7);\n\tlc = peek(gb, rb + src, 8);\n\tseed = (seed * 16807) % 2147483647;\n\tr = seed / 2147483647;\n\tif (mutate > 0 && src != 127) {\n\t\tif (noise() * 0.5 + 0.5 < mutate) {\n\t\t\tr = noise() * 0.5 + 0.5;\n\t\t}\n\t}\n\ttg = -1;\n\tlastt = -1;\n\tfor (k = 0; k < lc; k += 1) {\n\t\tlcum = peek(gb, rb + 128 + ls + k, 1);\n\t\tltgt = peek(gb, rb + 128 + ls + k, 0);\n\t\tif (tg < 0 && r < lcum) {\n\t\t\ttg = ltgt;\n\t\t}\n\t\tlastt = ltgt;\n\t}\n\tif (tg < 0) {\n\t\ttg = lastt;\n\t}\n\t// no links: the walk ends here until the next restart\n\tcn = tg;\n\tif (cn >= 0) {\n\t\tfire = 1;\n\t\tslen = max(peek(gb, rb + cn, 0), 0.01);\n\t}\n}\n\n// a push from another row's follow link: jump to its hit at once\nqser = peek(gb, REQ + row, 2);\nif (qser != lastser && peek(gb, REQ + row, 1) <= t0) {\n\tlastser = qser;\n\tjt = peek(gb, REQ + row, 0);\n\tif (running && jt >= 0 && jt < 127 && peek(gb, rb + jt, 0) > 0) {\n\t\tcn = jt;\n\t\tslen = max(peek(gb, rb + cn, 0), 0.01);\n\t\ttin = 0;\n\t\tfire = 1;\n\t\tpushed = 1;\n\t}\n}\n\nif (fire > 0) {\n\t// chance lanes, top to bottom; every hit rolls its own dice\n\tfidx = rb + cn;\n\tcv = peek(gb, fidx, 1);\n\tcrat = max(peek(gb, fidx, 2), 1);\n\tcacc = peek(gb, fidx, 3) > 0.5;\n\tmuted = (cv <= 0) ? 2 : 0;\n\tfor (k = 0; k < mlanes; k += 1) {\n\t\tcf = cbo + k * 1024 + cn;\n\t\top = peek(cb, cf, 0);\n\t\tif (op > 0) {\n\t\t\tpa = peek(cb, cf, 2);\n\t\t\tpb = peek(cb, cf, 3);\n\t\t\tpok = (pb <= 1) || (wrap(cnt, 0, pb) == pa - 1);\n\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\tr = seed / 2147483647;\n\t\t\tif (pok && r < min(peek(cb, cf, 1) * cscale, 1)) {\n\t\t\t\tamt = peek(cb, cf, 4);\n\t\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\t\tr = seed / 2147483647;\n\t\t\t\tif (op == 1) {\n\t\t\t\t\tmuted = max(muted, 1);\n\t\t\t\t} else if (op == 2) {\n\t\t\t\t\tmuted = (muted > 1) ? 2 : 0;\n\t\t\t\t} else if (op == 9) {\n\t\t\t\t\tcv = max(0, cv - amt / 100);\n\t\t\t\t} else if (op == 10) {\n\t\t\t\t\tcv = min(1, cv + amt / 100);\n\t\t\t\t} else if (op == 11) {\n\t\t\t\t\tcv = 1;\n\t\t\t\t} else if (op == 15) {\n\t\t\t\t\tcrat = max(amt, 1);\n\t\t\t\t} else if (op == 21) {\n\t\t\t\t\tdly = amt;\n\t\t\t\t} else if (op == 27) {\n\t\t\t\t\tcv = clamp(cv + (r * 2 - 1) * amt / 100, 0, 1);\n\t\t\t\t} else if (op == 30) {\n\t\t\t\t\tcacc = 1;\n\t\t\t\t} else if (op == 31) {\n\t\t\t\t\tcacc = 0;\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\tif (dly >= slen) {\n\t\tmuted = max(muted, 1);\n\t}\n\tif (muted == 0) {\n\t\tqon = 1;\n\t\tqd = dly;\n\t\tqv = cv;\n\t\tqrat = crat;\n\t\tqacc = cacc;\n\t\tqfr = fidx;\n\t\tqlen = max(slen - dly, 0.01);\n\t} else {\n\t\tqon = 0;\n\t}\n\t// follow links: push other rows (one roll per target row)\n\tif (muted == 0 && pushed == 0) {\n\t\tfs = peek(gb, fidx, 9);\n\t\tfc = peek(gb, fidx, 10);\n\t\tfor (k = 0; k < fc; k += 1) {\n\t\t\tfe = rb + 128 + fs + k;\n\t\t\tif (peek(gb, fe, 2) != grow) {\n\t\t\t\tgrow = peek(gb, fe, 2);\n\t\t\t\tgdone = 0;\n\t\t\t\tseed = (seed * 16807) % 2147483647;\n\t\t\t\tr = seed / 2147483647;\n\t\t\t}\n\t\t\tif (gdone == 0 && r < peek(gb, fe, 1)) {\n\t\t\t\tgdone = 1;\n\t\t\t\ttr = REQ + grow;\n\t\t\t\tpoke(gb, peek(gb, fe, 0), tr, 0);\n\t\t\t\tpoke(gb, t0, tr, 1);\n\t\t\t\tpoke(gb, peek(gb, tr, 2) + 1, tr, 2);\n\t\t\t}\n\t\t}\n\t}\n}\n\n// the hit waiting for its start (at once without DELAY)\nif (qon > 0) {\n\tif (running == 0) {\n\t\tqon = 0;\n\t} else {\n\t\tif (fire == 0) {\n\t\t\tqd = qd - adv;\n\t\t}\n\t\tif (qd <= 0) {\n\t\t\tqon = 0;\n\t\t\tstart = 1;\n\t\t}\n\t}\n}\n\nif (start > 0) {\n\tact = 1;\n\tel = 0;\n\tglen = qlen;\n\tgrat = max(floor(qrat), 1);\n\tgvel = qv;\n\tgacc = qacc;\n\tgfr = qfr;\n\thitprev = -1;\n}\n\n// ratchets: grat hits spread evenly over the hit's length\nif (act > 0) {\n\th = min(floor(el / glen * grat), grat - 1);\n\tif (h != hitprev) {\n\t\thitprev = h;\n\t\tnewhit = 1;\n\t}\n}\n\nwasHigh = lastg > 0;\nif (newhit > 0 && muteRow == 0) {\n\thv = gvel;\n\tdm = 1;\n\tif (gacc > 0) {\n\t\thv = min(1, hv + accvel);\n\t\tdm = accdec;\n\t}\n\t// trigger: a low sample first when one is still high, so every hit is a rising edge\n\ttc = max(floor(samplerate * trigms * 0.001), 1);\n\ttv = hv;\n\t// envelope: attack from where it is, then the decay\n\tephase = 1;\n\tepos = 0;\n\tefrom = ev;\n\tepeak = hv;\n\teatk = max(peek(gb, gfr, 4) * samplerate * 0.001, 1);\n\tedec = max(peek(gb, gfr, 5) * dm * samplerate * 0.001, 1);\n\tek = pow(4, clamp(peek(gb, gfr, 6), -1, 1));\n}\nif (tc > 0) {\n\tif (newhit > 0 && wasHigh) {\n\t\tg = 0;\n\t} else {\n\t\tg = tv;\n\t\ttc = tc - 1;\n\t}\n}\nlastg = g;\n\nif (ephase == 1) {\n\tepos = epos + 1;\n\tev = efrom + (epeak - efrom) * min(epos / eatk, 1);\n\tif (epos >= eatk) {\n\t\tephase = 2;\n\t\tepos = 0;\n\t}\n} else if (ephase == 2) {\n\tepos = epos + 1;\n\tev = epeak * pow(max(1 - epos / edec, 0), ek);\n\tif (epos >= edec) {\n\t\tephase = 0;\n\t\tev = 0;\n\t}\n}\n\nout1 = g;\nout2 = ev;\nout3 = cn;\nout4 = bk;\nout5 = rt;\n",
+                    "fontface": 0,
+                    "fontname": "<Monospaced>",
+                    "fontsize": 12.0,
+                    "numinlets": 4,
+                    "numoutlets": 5,
+                    "outlettype": [ "", "", "", "", "" ],
+                    "patching_rect": [ 20.0, 50.0, 700.0, 640.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin1",
+                    "maxclass": "newobj",
+                    "text": "in 1",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 20.0, 14.0, 40.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin2",
+                    "maxclass": "newobj",
+                    "text": "in 2",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 140.0, 14.0, 40.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin3",
+                    "maxclass": "newobj",
+                    "text": "in 3",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 260.0, 14.0, 40.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin4",
+                    "maxclass": "newobj",
+                    "text": "in 4",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 380.0, 14.0, 40.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout1",
+                    "maxclass": "newobj",
+                    "text": "out 1",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 20.0, 710.0, 45.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout2",
+                    "maxclass": "newobj",
+                    "text": "out 2",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 140.0, 710.0, 45.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout3",
+                    "maxclass": "newobj",
+                    "text": "out 3",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 260.0, 710.0, 45.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout4",
+                    "maxclass": "newobj",
+                    "text": "out 4",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 380.0, 710.0, 45.0, 22.0 ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout5",
+                    "maxclass": "newobj",
+                    "text": "out 5",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [ 500.0, 710.0, 45.0, 22.0 ]
+                }
+            }
+        ],
+        "lines": [
+            {
+                "patchline": {
+                    "source": [ "gin1", 0 ],
+                    "destination": [ "gcode", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gin2", 0 ],
+                    "destination": [ "gcode", 1 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gin3", 0 ],
+                    "destination": [ "gcode", 2 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gin4", 0 ],
+                    "destination": [ "gcode", 3 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gcode", 0 ],
+                    "destination": [ "gout1", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gcode", 1 ],
+                    "destination": [ "gout2", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gcode", 2 ],
+                    "destination": [ "gout3", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gcode", 3 ],
+                    "destination": [ "gout4", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [ "gcode", 4 ],
+                    "destination": [ "gout5", 0 ]
+                }
+            }
+        ]
+    }
+}

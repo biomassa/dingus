@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- markovPerc: a Markov-chain percussion sequencer with 8 rows. Each row is its own chain with its own clock (the phasor and its steps per cycle, or the trigger inlet and a div) and its own restart period. Links can also cross rows: a "follow" link makes another row jump to a hit at once. Hits have velocity, accent, ratchets and an envelope (attack, decay, curve), plus chance lanes. 8 trigger outlets, then 8 envelope outlets.
+- toMidi, toDrums, toParam: converters from dingus signals to vst~ (midievent / parameter messages) and to hardware MIDI (raw bytes).
+  - toMidi: pitch + gate to notes. Microtonal pitch goes out as MPE bends (retune), as scale degrees for synths that load the scale, or as nearest notes with vst~'s per-note detune. Optional non-MPE output on one channel. The gate is caught at the sample (gen~ dingus.toMidiIn: rise/fall counts, velocity and pitch held from the rise) and read every 2 ms, so short triggers and the 3 ms gap between notes are never missed.
+  - toDrums: 8 trigger rows to drum notes. Each rise is caught at the sample (gen~ dingus.toDrumsIn) and read every 2 ms, so 5 ms triggers are never missed.
+  - toParam: 4 signals to 0..1 floats for the PARAM inlets of the plug-in hosts (the host picks the parameter), sent only on change, with a final send once the input settles. Each slot can also send a MIDI CC for hardware.
+- extras/build: the scripts that generate the converter patches (pbuild.py), and a layout check for patching views (layoutcheck.py).
 - voltagesModulatorTrig: a voltages sequencer clocked by audio triggers instead of a phasor. Every `div` rising edges advance one step, for CV that follows markovSeq's gates. The yellow scope shows the input, and the green scope shows the steps. It keeps its own preset and sequence files (`uVTRG`).
 - markovSeq: grey ghost outlines in the roll show where the walk actually plays each note in the first cycle. The walk follows the most likely links, and a red end marks a note cut short by a restart. Turn them off with `ghosts 0`.
 

@@ -1,0 +1,102 @@
+{
+    "patcher": {
+        "fileversion": 1,
+        "appversion": {
+            "major": 9,
+            "minor": 2,
+            "revision": 1,
+            "architecture": "x64",
+            "modernui": 1
+        },
+        "classnamespace": "dsp.gen",
+        "rect": [
+            100.0,
+            100.0,
+            680.0,
+            660.0
+        ],
+        "integercoordinates": 1,
+        "boxes": [
+            {
+                "box": {
+                    "id": "gcode",
+                    "maxclass": "codebox",
+                    "code": "// dingus.toDrumsIn: catches every hit of a trigger / gate signal at the sample, for dingus.toDrums.\n// Max reads signals only once per vector (snapshot~), so a 5 ms trigger can be over before it is read and\n// its velocity reads 0. Here each rise is counted and its level held, so a reader that looks every 2 ms\n// sees every hit (hits closer than that count as one).\n// in1 trigger / gate (level = velocity)\n// out1 one number for one snapshot~: (rises mod 1024) * 256 + velocity (0..127) * 2 + up (1 = the gate is\n//      high); under 2^18, so a 32-bit float carries it exactly. velocity = the peak of the rise's first ms\nHistory up(0);\nHistory rises(0);\nHistory vel(0);\nHistory pk(0);\n\ng = in1;\nif (g > 0 && up == 0) {\n\trises = (rises + 1) % 1024;\n\tvel = g;\n\tpk = floor(samplerate * 0.001);\n\tup = 1;\n} else if (g <= 0 && up > 0) {\n\tup = 0;\n}\n// a trigger that ramps up: its peak over the first ms is the velocity\nif (pk > 0) {\n\tpk = pk - 1;\n\tvel = max(vel, g);\n}\nout1 = rises * 256 + clamp(round(vel * 127), 0, 127) * 2 + up;\n",
+                    "fontface": 0,
+                    "fontname": "<Monospaced>",
+                    "fontsize": 12.0,
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [
+                        ""
+                    ],
+                    "patching_rect": [
+                        20.0,
+                        50.0,
+                        620.0,
+                        520.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gin1",
+                    "maxclass": "newobj",
+                    "text": "in 1",
+                    "numinlets": 0,
+                    "numoutlets": 1,
+                    "outlettype": [
+                        ""
+                    ],
+                    "patching_rect": [
+                        20.0,
+                        14.0,
+                        40.0,
+                        22.0
+                    ]
+                }
+            },
+            {
+                "box": {
+                    "id": "gout1",
+                    "maxclass": "newobj",
+                    "text": "out 1",
+                    "numinlets": 1,
+                    "numoutlets": 0,
+                    "patching_rect": [
+                        20.0,
+                        590.0,
+                        45.0,
+                        22.0
+                    ]
+                }
+            }
+        ],
+        "lines": [
+            {
+                "patchline": {
+                    "source": [
+                        "gin1",
+                        0
+                    ],
+                    "destination": [
+                        "gcode",
+                        0
+                    ]
+                }
+            },
+            {
+                "patchline": {
+                    "source": [
+                        "gcode",
+                        0
+                    ],
+                    "destination": [
+                        "gout1",
+                        0
+                    ]
+                }
+            }
+        ]
+    }
+}
